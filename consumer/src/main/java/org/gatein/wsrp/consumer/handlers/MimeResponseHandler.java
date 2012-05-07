@@ -45,10 +45,12 @@ import org.gatein.wsrp.WSRPTypeFactory;
 import org.gatein.wsrp.consumer.ProducerInfo;
 import org.gatein.wsrp.consumer.spi.WSRPConsumerSPI;
 import org.oasis.wsrp.v2.CacheControl;
+import org.oasis.wsrp.v2.Extension;
 import org.oasis.wsrp.v2.MimeResponse;
 import org.oasis.wsrp.v2.SessionContext;
 
 import java.io.UnsupportedEncodingException;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -150,7 +152,11 @@ public abstract class MimeResponseHandler<Invocation extends PortletInvocation, 
          }
       }
 
-      return createContentResponse(mimeResponse, invocation, null, null, mimeType, binary, markup, createCacheControl(mimeResponse));
+      // JBEPP-1174: make extensions available to the invocation
+      final List<Extension> extensions = mimeResponse.getExtensions();
+      ResponseProperties properties = createPropertiesIfNeeded(extensions);
+
+      return createContentResponse(mimeResponse, invocation, properties, null, mimeType, binary, markup, createCacheControl(mimeResponse));
    }
 
    private String processMarkup(String markup, Invocation invocation)

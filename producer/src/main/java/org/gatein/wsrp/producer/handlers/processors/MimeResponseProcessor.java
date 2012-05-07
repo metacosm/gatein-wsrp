@@ -28,11 +28,15 @@ import org.gatein.common.util.ParameterValidation;
 import org.gatein.pc.api.invocation.PortletInvocation;
 import org.gatein.pc.api.invocation.response.ContentResponse;
 import org.gatein.pc.api.invocation.response.PortletInvocationResponse;
+import org.gatein.pc.api.invocation.response.ResponseProperties;
 import org.gatein.wsrp.WSRPConstants;
 import org.gatein.wsrp.WSRPTypeFactory;
 import org.gatein.wsrp.WSRPUtils;
 import org.gatein.wsrp.servlet.ServletAccess;
+import org.oasis.wsrp.v2.Extension;
 import org.oasis.wsrp.v2.MimeResponse;
+
+import java.util.List;
 
 /**
  * @author <a href="mailto:chris.laprun@jboss.com">Chris Laprun</a>
@@ -94,6 +98,14 @@ abstract class MimeResponseProcessor<LocalMimeResponse extends MimeResponse, Res
       LocalMimeResponse mimeResponse = WSRPTypeFactory.createMimeResponse(contentType, itemString, itemBinary, getReifiedClass());
 
       mimeResponse.setLocale(markupRequest.getLocale());
+
+      // JBEPP-1174: set extensions if any
+      ResponseProperties properties = content.getProperties();
+      List<Extension> extensions = createExtensionsIfNeeded(properties);
+      if (extensions != null)
+      {
+         mimeResponse.getExtensions().addAll(extensions);
+      }
 
       //TODO: figure out useCachedItem
       Boolean useCachedItem = false;

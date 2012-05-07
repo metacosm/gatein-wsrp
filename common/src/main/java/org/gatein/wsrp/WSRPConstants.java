@@ -77,7 +77,8 @@ public final class WSRPConstants
     */
    public static final String NORMAL_WINDOW_STATE = "wsrp:normal";
    /**
-    * When the window state is <code>wsrp:minimized</code>, the Portlet SHOULD NOT render visible markup, but is free to
+    * When the window state is <code>wsrp:minimized</code>, the Portlet SHOULD NOT render visible markup, but is free
+    * to
     * include non-visible data such as JavaScript or hidden forms. The <code>getMarkup</code> operation can be invoked
     * for the <code>wsrp:minimized</code> state just as for all other window states.
     */
@@ -206,6 +207,9 @@ public final class WSRPConstants
    public static final QName XSD_TIME = new QName("http://www.w3.org/2001/XMLSchema", "time");
    public static final QName XSD_DATE = new QName("http://www.w3.org/2001/XMLSchema", "date");
    public static final QName XSD_ANY_SIMPLE_TYPE = new QName("http://www.w3.org/2001/XMLSchema", "anySimpleType");
+
+   // Prefix used by portlets to pass extensions to WSRP
+   public static final String EXTENSION_PREFIX = "org.gatein.wsrp.extension.";
 
    private WSRPConstants()
    {

@@ -30,7 +30,9 @@ import org.gatein.pc.api.StateString;
 import org.gatein.pc.api.invocation.PortletInvocation;
 import org.gatein.pc.api.invocation.response.ErrorResponse;
 import org.gatein.pc.api.invocation.response.PortletInvocationResponse;
+import org.gatein.pc.api.invocation.response.ResponseProperties;
 import org.gatein.pc.api.spi.InstanceContext;
+import org.gatein.pc.api.spi.PortalContext;
 import org.gatein.pc.api.spi.PortletInvocationContext;
 import org.gatein.pc.api.spi.SecurityContext;
 import org.gatein.pc.api.spi.WindowContext;
@@ -41,7 +43,9 @@ import org.gatein.wsrp.consumer.ProducerInfo;
 import org.gatein.wsrp.consumer.WSRPConsumerImpl;
 import org.gatein.wsrp.consumer.portlet.info.WSRPPortletInfo;
 import org.gatein.wsrp.consumer.spi.WSRPConsumerSPI;
+import org.gatein.wsrp.payload.PayloadUtils;
 import org.gatein.wsrp.spec.v2.WSRP2RewritingConstants;
+import org.oasis.wsrp.v2.Extension;
 import org.oasis.wsrp.v2.InvalidCookie;
 import org.oasis.wsrp.v2.InvalidRegistration;
 import org.oasis.wsrp.v2.InvalidSession;
@@ -58,6 +62,7 @@ import org.slf4j.LoggerFactory;
 
 import java.rmi.RemoteException;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -293,6 +298,21 @@ public abstract class InvocationHandler<Invocation extends PortletInvocation, Re
 
    protected abstract PortletInvocationResponse processResponse(Response response, Invocation invocation, RequestPrecursor<Invocation> requestPrecursor) throws PortletInvokerException;
 
+   protected ResponseProperties createPropertiesIfNeeded(List<Extension> extensions)
+   {
+      ResponseProperties properties = null;
+      if (!extensions.isEmpty())
+      {
+         properties = new ResponseProperties();
+         for (Extension extension : extensions)
+         {
+            final PayloadUtils.UnmarshalledExtension unmarshalledExtension = PayloadUtils.unmarshallExtension(extension.getAny());
+            properties.getTransportHeaders().setValue(WSRPConstants.EXTENSION_PREFIX + unmarshalledExtension.getName(), unmarshalledExtension.getValue());
+         }
+      }
+      return properties;
+   }
+
    /**
     * Extracts basic required elements for all invocation requests.
     *
@@ -405,6 +425,28 @@ public abstract class InvocationHandler<Invocation extends PortletInvocation, Re
          if (log.isDebugEnabled())
          {
             log.debug(WSRPUtils.toString(getMarkupParams()));
+         }
+
+         // JBEPP-1174: set extensions if any
+         final PortalContext portalContext = invocation.getPortalContext();
+         if (portalContext != null)
+         {
+            final Map<String, String> properties = portalContext.getProperties();
+            if (properties != null)
+            {
+               for (Map.Entry<String, String> entry : properties.entrySet())
+               {
+                  // we have an extension
+                  final String key = entry.getKey();
+                  if (key.startsWith(WSRPConstants.EXTENSION_PREFIX))
+                  {
+                     String name = key.substring(WSRPConstants.EXTENSION_PREFIX.length());
+                     Extension e = new Extension();
+                     e.setAny(PayloadUtils.marshallExtension(name, entry.getValue()));
+                     getMarkupParams().getExtensions().add(e);
+                  }
+               }
+            }
          }
       }
 

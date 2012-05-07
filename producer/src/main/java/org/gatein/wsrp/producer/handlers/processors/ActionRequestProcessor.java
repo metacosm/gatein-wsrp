@@ -28,6 +28,7 @@ import org.gatein.pc.api.invocation.ActionInvocation;
 import org.gatein.pc.api.invocation.PortletInvocation;
 import org.gatein.pc.api.invocation.response.HTTPRedirectionResponse;
 import org.gatein.pc.api.invocation.response.PortletInvocationResponse;
+import org.gatein.pc.api.invocation.response.ResponseProperties;
 import org.gatein.pc.api.invocation.response.UpdateNavigationalStateResponse;
 import org.gatein.pc.api.state.AccessMode;
 import org.gatein.wsrp.WSRPTypeFactory;
@@ -35,6 +36,7 @@ import org.gatein.wsrp.WSRPUtils;
 import org.gatein.wsrp.producer.handlers.MarkupHandler;
 import org.gatein.wsrp.spec.v2.WSRP2ExceptionFactory;
 import org.oasis.wsrp.v2.BlockingInteractionResponse;
+import org.oasis.wsrp.v2.Extension;
 import org.oasis.wsrp.v2.InteractionParams;
 import org.oasis.wsrp.v2.InvalidHandle;
 import org.oasis.wsrp.v2.InvalidRegistration;
@@ -52,6 +54,8 @@ import org.oasis.wsrp.v2.UnsupportedMimeType;
 import org.oasis.wsrp.v2.UnsupportedMode;
 import org.oasis.wsrp.v2.UnsupportedWindowState;
 import org.oasis.wsrp.v2.UpdateResponse;
+
+import java.util.List;
 
 /**
  * @author <a href="mailto:chris.laprun@jboss.com">Chris Laprun</a>
@@ -133,6 +137,15 @@ class ActionRequestProcessor extends UpdateNavigationalStateResponseProcessor<Bl
       {
          UpdateNavigationalStateResponse stateResponse = (UpdateNavigationalStateResponse)response;
          UpdateResponse updateResponse = createUpdateResponse(stateResponse);
+
+
+         // JBEPP-1174: set extensions if any
+         ResponseProperties properties = stateResponse.getProperties();
+         List<Extension> extensions = createExtensionsIfNeeded(properties);
+         if (extensions != null)
+         {
+            updateResponse.getExtensions().addAll(extensions);
+         }
 
          return WSRPTypeFactory.createBlockingInteractionResponse(updateResponse);
       }
