@@ -45,7 +45,6 @@ import org.oasis.wsrp.v2.SetRegistrationLifetime;
 import org.oasis.wsrp.v2.UserContext;
 import org.oasis.wsrp.v2.WSRPV2RegistrationPortType;
 
-import javax.jws.HandlerChain;
 import javax.jws.WebParam;
 import javax.xml.ws.Holder;
 import java.util.List;
@@ -63,7 +62,7 @@ import java.util.List;
    wsdlLocation = "/WEB-INF/wsdl/wsrp-2.0-services.wsdl",
    endpointInterface = "org.oasis.wsrp.v2.WSRPV2RegistrationPortType"
 )
-@HandlerChain(file="../producer-handler-chains.xml")
+//@HandlerChain(file="../producer-handler-chains.xml")
 @Features(features = "org.gatein.wsrp.cxf.WSRPEndpointFeature")
 public class RegistrationEndpoint extends WSRPBaseEndpoint implements WSRPV2RegistrationPortType
 {
