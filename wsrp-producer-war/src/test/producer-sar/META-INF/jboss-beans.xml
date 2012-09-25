@@ -21,7 +21,7 @@
   ~ Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
   ~ 02110-1301 USA, or see the FSF site: http://www.fsf.org.
   -->
-<deployment xmlns="urn:jboss:bean-deployer:2.0">
+<deployment xmlns="urn:jboss:pojo:7.0">
    <!--
       <bean name="TestDriverServer" class="org.jboss.unit.remote.driver.RemoteTestDriverServer"/>
 
@@ -35,7 +35,7 @@
       </bean>
    -->
    <bean name="WSRPProducer" class="org.gatein.wsrp.producer.WSRPProducerImpl">
-      <constructor factoryClass="org.gatein.wsrp.producer.ProducerHolder" factoryMethod="getProducer">
+      <constructor factory-class="org.gatein.wsrp.producer.ProducerHolder" factory-method="getProducer">
          <parameter>true</parameter>
       </constructor>
       <property name="portletInvoker">
@@ -81,7 +81,9 @@
          class="org.gatein.pc.portlet.impl.state.producer.PortletStatePersistenceManagerService"/>
 
    <bean name="StateManagmentPolicyService" class="org.gatein.pc.portlet.impl.state.StateManagementPolicyService">
-      <property name="persistLocally">true</property>
+      <property name="persistLocally">
+         <value>true</value>
+      </property>
    </bean>
 
    <bean name="StateConverterService" class="org.gatein.pc.portlet.impl.state.StateConverterV0"/>
@@ -98,7 +100,9 @@
    </bean>
 
    <bean name="ConfigurationService" class="org.gatein.wsrp.config.FileSystemXmlProducerConfigWithReload">
-      <property name="configFile">conf/producer-config.xml</property>
+      <property name="configFile">
+         <value>conf/producer-config.xml</value>
+      </property>
       <!--      <property name="configFile">/tmp/producer-config.xml</property> -->
    </bean>
 
