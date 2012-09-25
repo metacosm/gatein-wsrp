@@ -150,9 +150,6 @@ public abstract class V2ProducerBaseTest extends WSRPProducerBaseTest
 
    protected static JavaArchive createDeployment()
    {
-      return ShrinkWrap.create(JavaArchive.class, "test.jar")
-         .addClass(NeedPortletHandleTest.class)
-         .addClass(V2ProducerBaseTest.class)
-         .addClass(WSRPProducerBaseTest.class);
+      return ShrinkWrap.create(JavaArchive.class, "test.jar").addClasses(NeedPortletHandleTest.class, V2ProducerBaseTest.class, WSRPProducerBaseTest.class);
    }
 }
