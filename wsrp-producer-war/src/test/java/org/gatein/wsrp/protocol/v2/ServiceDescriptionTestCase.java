@@ -27,15 +27,12 @@ import com.google.common.base.Function;
 import org.gatein.common.util.ParameterValidation;
 import org.gatein.wsrp.WSRPUtils;
 import org.gatein.wsrp.api.servlet.ServletAccess;
-import org.gatein.wsrp.producer.WSRPProducerBaseTest;
-import org.gatein.wsrp.protocol.v1.NeedPortletHandleTest;
 import org.gatein.wsrp.spec.v2.WSRP2Constants;
 import org.gatein.wsrp.test.ExtendedAssert;
 import org.gatein.wsrp.test.support.MockHttpServletRequest;
 import org.gatein.wsrp.test.support.MockHttpServletResponse;
-import org.jboss.arquillian.api.Deployment;
+import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
-import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.After;
 import org.junit.Before;
@@ -70,11 +67,7 @@ public class ServiceDescriptionTestCase extends V2ProducerBaseTest
    @Deployment
    public static JavaArchive createDeployment()
    {
-      JavaArchive jar = ShrinkWrap.create("test.jar", JavaArchive.class);
-      jar.addClass(NeedPortletHandleTest.class);
-      jar.addClass(V2ProducerBaseTest.class);
-      jar.addClass(WSRPProducerBaseTest.class);
-      return jar;
+      return V2ProducerBaseTest.createDeployment();
    }
 
    @Override

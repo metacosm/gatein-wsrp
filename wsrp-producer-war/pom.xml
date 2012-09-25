@@ -350,6 +350,10 @@
          <scope>test</scope>
       </dependency>
       <dependency>
+         <groupId>org.jboss.arquillian.junit</groupId>
+         <artifactId>arquillian-junit-container</artifactId>
+      </dependency>
+      <!--<dependency>
          <groupId>org.jboss.arquillian</groupId>
          <artifactId>arquillian-api</artifactId>
          <version>${org.jboss.arquillian.version}</version>
@@ -358,15 +362,13 @@
       <dependency>
          <groupId>org.jboss.arquillian</groupId>
          <artifactId>arquillian-junit</artifactId>
-         <version>${org.jboss.arquillian.version}</version>
          <scope>test</scope>
       </dependency>
       <dependency>
          <groupId>org.jboss.arquillian.container</groupId>
          <artifactId>arquillian-jbossas-remote-51</artifactId>
-         <version>${org.jboss.arquillian.version}</version>
          <scope>test</scope>
-      </dependency>
+      </dependency>-->
       <dependency>
          <groupId>org.jboss.jbossas</groupId>
          <artifactId>jboss-as-client</artifactId>
@@ -470,7 +472,7 @@
                      <addClasspath>true</addClasspath>
                   </manifest>
                   <manifestEntries>
-                    <Dependencies>org.apache.cxf</Dependencies>
+                     <Dependencies>org.apache.cxf</Dependencies>
                   </manifestEntries>
                </archive>
             </configuration>

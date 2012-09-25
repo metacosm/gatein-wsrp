@@ -24,15 +24,13 @@
 package org.gatein.wsrp.protocol.v1;
 
 import org.gatein.wsrp.api.servlet.ServletAccess;
-import org.gatein.wsrp.producer.WSRPProducerBaseTest;
 import org.gatein.wsrp.spec.v1.WSRP1TypeFactory;
 import org.gatein.wsrp.test.ExtendedAssert;
 import org.gatein.wsrp.test.support.MockHttpServletRequest;
 import org.gatein.wsrp.test.support.MockHttpServletResponse;
-import org.jboss.arquillian.api.Deployment;
+import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.logging.Logger;
-import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.After;
 import org.junit.Before;
@@ -74,11 +72,7 @@ public class ReleaseSessionTestCase extends NeedPortletHandleTest
    @Deployment
    public static JavaArchive createDeployment()
    {
-      JavaArchive jar = ShrinkWrap.create("test.jar", JavaArchive.class);
-      jar.addClass(NeedPortletHandleTest.class);
-      jar.addClass(V1ProducerBaseTest.class);
-      jar.addClass(WSRPProducerBaseTest.class);
-      return jar;
+      return V1ProducerBaseTest.createDeployment();
    }
 
    @Before

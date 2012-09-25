@@ -39,6 +39,8 @@ import org.gatein.wsrp.producer.v1.WSRP1Producer;
 import org.gatein.wsrp.registration.RegistrationPropertyDescription;
 import org.gatein.wsrp.spec.v1.WSRP1TypeFactory;
 import org.gatein.wsrp.test.ExtendedAssert;
+import org.jboss.shrinkwrap.api.ShrinkWrap;
+import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.oasis.wsrp.v1.V1GetMarkup;
 import org.oasis.wsrp.v1.V1GetServiceDescription;
 import org.oasis.wsrp.v1.V1LocalizedString;
@@ -355,5 +357,13 @@ public abstract class V1ProducerBaseTest extends WSRPProducerBaseTest
       V1ServiceDescription serviceDescription = producer.getServiceDescription(getServiceDescription);
       List<V1PortletDescription> offered = serviceDescription.getOfferedPortlets();
       return Collections2.transform(offered, PORTLET_DESCRIPTION_TO_HANDLE);
+   }
+
+   protected static JavaArchive createDeployment()
+   {
+      return ShrinkWrap.create(JavaArchive.class, "test.jar")
+         .addClass(NeedPortletHandleTest.class)
+         .addClass(V1ProducerBaseTest.class)
+         .addClass(WSRPProducerBaseTest.class);
    }
 }

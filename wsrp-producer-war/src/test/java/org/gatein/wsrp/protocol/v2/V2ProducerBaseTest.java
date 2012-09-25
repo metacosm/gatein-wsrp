@@ -38,6 +38,8 @@ import org.gatein.wsrp.producer.handlers.processors.ProducerHelper;
 import org.gatein.wsrp.producer.v2.WSRP2Producer;
 import org.gatein.wsrp.registration.RegistrationPropertyDescription;
 import org.gatein.wsrp.test.ExtendedAssert;
+import org.jboss.shrinkwrap.api.ShrinkWrap;
+import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.oasis.wsrp.v2.GetServiceDescription;
 import org.oasis.wsrp.v2.PortletDescription;
 import org.oasis.wsrp.v2.ServiceDescription;
@@ -144,5 +146,13 @@ public abstract class V2ProducerBaseTest extends WSRPProducerBaseTest
       {
          return null;
       }
+   }
+
+   protected static JavaArchive createDeployment()
+   {
+      return ShrinkWrap.create(JavaArchive.class, "test.jar")
+         .addClass(NeedPortletHandleTest.class)
+         .addClass(V2ProducerBaseTest.class)
+         .addClass(WSRPProducerBaseTest.class);
    }
 }
