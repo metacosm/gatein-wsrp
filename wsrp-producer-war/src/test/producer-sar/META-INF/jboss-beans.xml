@@ -60,7 +60,7 @@
          <inject bean="ProducerPersistenceManagerService"/>
       </property>
       <property name="stateManagementPolicy">
-         <inject bean="StateManagmentPolicyService"/>
+         <inject bean="StateManagementPolicyService"/>
       </property>
       <property name="stateConverter">
          <inject bean="StateConverterService"/>
@@ -80,7 +80,7 @@
    <bean name="ProducerPersistenceManagerService"
          class="org.gatein.pc.portlet.impl.state.producer.PortletStatePersistenceManagerService"/>
 
-   <bean name="StateManagmentPolicyService" class="org.gatein.pc.portlet.impl.state.StateManagementPolicyService">
+   <bean name="StateManagementPolicyService" class="org.gatein.pc.portlet.impl.state.StateManagementPolicyService">
       <property name="persistLocally">
          <value>true</value>
       </property>
