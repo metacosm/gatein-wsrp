@@ -24,13 +24,15 @@ package org.gatein.wsrp;
 
 import org.gatein.common.util.ParameterValidation;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /** @author <a href="mailto:chris.laprun@jboss.com">Chris Laprun</a> */
 public class SupportsLastModified
 {
    /** GTNWSRP-239: last modification epoch: currently persistent via mixin */
-   private long lastModified;
+   private AtomicLong lastModified = new AtomicLong();
 
-   protected boolean modifyNowIfNeeded(Object oldValue, Object newValue)
+   protected synchronized boolean modifyNowIfNeeded(Object oldValue, Object newValue)
    {
       if (ParameterValidation.isOldAndNewDifferent(oldValue, newValue))
       {
@@ -50,12 +52,12 @@ public class SupportsLastModified
 
    public long getLastModified()
    {
-      return lastModified;
+      return lastModified.get();
    }
 
    public void setLastModified(long lastModified)
    {
-      this.lastModified = lastModified;
+      this.lastModified.set(lastModified);
    }
 
    public static long now()
