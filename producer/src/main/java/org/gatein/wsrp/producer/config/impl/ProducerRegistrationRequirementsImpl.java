@@ -109,23 +109,6 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
       setLastModified(other.getLastModified());
    }
 
-   public synchronized void setRegistrationProperties(Collection<RegistrationPropertyDescription> regProps)
-   {
-      Set<RegistrationPropertyDescription> original = new HashSet<RegistrationPropertyDescription>(registrationProperties.values());
-      Set<RegistrationPropertyDescription> newProps = new HashSet<RegistrationPropertyDescription>(regProps);
-      if (modifyNowIfNeeded(original, newProps))
-      {
-         registrationProperties.clear();
-
-         for (RegistrationPropertyDescription propertyDescription : regProps)
-         {
-            addRegistrationPropertyWithoutNotification(new RegistrationPropertyDescription(propertyDescription));
-         }
-
-         notifyRegistrationPropertyChangeListeners();
-      }
-   }
-
    public boolean isRegistrationRequired()
    {
       return requiresRegistration;
@@ -155,6 +138,23 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
       if (modifyNowIfNeeded(this.fullServiceDescriptionRequiresRegistration, fullServiceDescriptionRequiresRegistration))
       {
          this.fullServiceDescriptionRequiresRegistration = fullServiceDescriptionRequiresRegistration;
+      }
+   }
+
+   public synchronized void setRegistrationProperties(Collection<RegistrationPropertyDescription> regProps)
+   {
+      Set<RegistrationPropertyDescription> original = new HashSet<RegistrationPropertyDescription>(registrationProperties.values());
+      Set<RegistrationPropertyDescription> newProps = new HashSet<RegistrationPropertyDescription>(regProps);
+      if (modifyNowIfNeeded(original, newProps))
+      {
+         registrationProperties.clear();
+
+         for (RegistrationPropertyDescription propertyDescription : regProps)
+         {
+            addRegistrationPropertyWithoutNotification(new RegistrationPropertyDescription(propertyDescription));
+         }
+
+         notifyRegistrationPropertyChangeListeners();
       }
    }
 
