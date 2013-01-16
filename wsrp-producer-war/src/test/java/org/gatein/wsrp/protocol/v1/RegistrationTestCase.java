@@ -283,14 +283,14 @@ public class RegistrationTestCase extends V1ProducerBaseTest
 
       // Check that one of the returned property description is equal to the one we just added
       V1PropertyDescription description = pds.get(1);
+      PropertyDescription propertyDescription = WSRPUtils.convertToPropertyDescription(regProp);
+      V1PropertyDescription v1PropertyDescription = V2ToV1Converter.toV1PropertyDescription(propertyDescription);
       if (description.getName().startsWith("New"))
       {
-         assertEquals(WSRPUtils.convertToPropertyDescription(regProp), description);
+         assertEquals(v1PropertyDescription, description);
       }
       else
       {
-         PropertyDescription propertyDescription = WSRPUtils.convertToPropertyDescription(regProp);
-         V1PropertyDescription v1PropertyDescription = V2ToV1Converter.toV1PropertyDescription(propertyDescription);
          assertEquals(v1PropertyDescription, pds.get(0));
       }
 
