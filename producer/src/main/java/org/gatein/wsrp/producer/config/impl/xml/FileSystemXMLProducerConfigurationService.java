@@ -24,6 +24,8 @@
 package org.gatein.wsrp.producer.config.impl.xml;
 
 import org.gatein.common.net.URLTools;
+import org.gatein.wsrp.producer.config.ProducerConfiguration;
+import org.gatein.wsrp.producer.config.impl.ProducerConfigurationImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,13 +88,13 @@ public class FileSystemXMLProducerConfigurationService extends SimpleXMLProducer
       reloadConfiguration();
    }
 
-   public void loadConfiguration() throws Exception
+   public ProducerConfiguration loadConfiguration() throws Exception
    {
       URL configURL = getConfigLocationURL();
 
       try
       {
-         loadConfigurationAt(configURL);
+         return loadConfigurationAt(configURL);
       }
       catch (Exception e)
       {
@@ -101,17 +103,19 @@ public class FileSystemXMLProducerConfigurationService extends SimpleXMLProducer
             log.debug("Configuration saved at " + config.getCanonicalPath()
                + " is not loading properly. Falling back to default configuration.");
             config.delete(); // delete improper config so that we retrieve the default configuration
-            loadConfigurationAt(getConfigLocationURL());
+            return loadConfigurationAt(getConfigLocationURL());
          }
+
+         return new ProducerConfigurationImpl();
       }
    }
 
-   private void loadConfigurationAt(URL configURL) throws Exception
+   private ProducerConfiguration loadConfigurationAt(URL configURL) throws Exception
    {
       log.debug("About to parse producer configuration " + configURL);
       inputStream = configURL.openStream();
 
-      super.loadConfiguration();
+      return super.loadConfiguration();
    }
 
    private URL getConfigLocationURL() throws Exception

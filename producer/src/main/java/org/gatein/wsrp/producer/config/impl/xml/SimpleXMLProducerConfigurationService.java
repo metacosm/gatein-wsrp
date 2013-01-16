@@ -95,16 +95,16 @@ public class SimpleXMLProducerConfigurationService extends AbstractProducerConfi
       this.inputStream = inputStream;
    }
 
-   public void loadConfiguration() throws Exception
+   public ProducerConfiguration loadConfiguration() throws Exception
    {
       if (inputStream != null)
       {
          Unmarshaller unmarshaller = UnmarshallerFactory.newInstance().newUnmarshaller();
          ObjectModelFactory factory = new ProducerConfigurationFactory();
-         configuration.set((ProducerConfiguration)unmarshaller.unmarshal(inputStream, factory, null));
+         return (ProducerConfiguration)unmarshaller.unmarshal(inputStream, factory, null);
       }
 
-      configuration.compareAndSet(null, new ProducerConfigurationImpl());
+      return new ProducerConfigurationImpl();
    }
 
    public void saveConfiguration() throws Exception
@@ -155,7 +155,7 @@ public class SimpleXMLProducerConfigurationService extends AbstractProducerConfi
       ObjectModelProvider provider = new ProducerConfigurationProvider();
 
       marshaller.setProperty("org.jboss.xml.binding.marshalling.indent", "true");
-      marshaller.marshal(xsReader, provider, configuration, xmlOutput);
+      marshaller.marshal(xsReader, provider, getConfigurationAsIs(), xmlOutput);
 
       // close XML Schema reader
       xsReader.close();

@@ -41,11 +41,11 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public abstract class AbstractProducerConfigurationService implements ProducerConfigurationService
 {
-   protected AtomicReference<ProducerConfiguration> configuration = new AtomicReference<ProducerConfiguration>();
+   private AtomicReference<ProducerConfiguration> configuration = new AtomicReference<ProducerConfiguration>();
 
    public ProducerConfiguration getConfiguration()
    {
-      if (configuration.get() == null || configuration.get().getLastModified() < getPersistedLastModifiedForConfiguration())
+      if (configurationNeedsReloading())
       {
          try
          {
@@ -57,34 +57,50 @@ public abstract class AbstractProducerConfigurationService implements ProducerCo
          }
       }
 
+      return getConfigurationAsIs();
+   }
+
+   protected ProducerConfiguration getConfigurationAsIs()
+   {
       return configuration.get();
    }
 
-   public void reloadConfiguration() throws Exception
+   private synchronized boolean configurationNeedsReloading()
    {
-      reloadConfiguration(false);
+      final ProducerConfiguration producerConfiguration = configuration.get();
+      return producerConfiguration == null || producerConfiguration.getLastModified() < getPersistedLastModifiedForConfiguration();
    }
 
-   public void reloadConfiguration(boolean triggerListeners) throws Exception
+   public ProducerConfiguration reloadConfiguration() throws Exception
+   {
+      return reloadConfiguration(false);
+   }
+
+   public ProducerConfiguration reloadConfiguration(boolean triggerListeners) throws Exception
    {
       // save listeners if we already have a configuration
       List<ProducerConfigurationChangeListener> listeners = null;
       Set<RegistrationPolicyChangeListener> policyListeners = null;
       Set<RegistrationPropertyChangeListener> propertyListeners = null;
       ProducerRegistrationRequirements registrationRequirements;
-      if (configuration.get() != null)
+
+      synchronized (this)
       {
-         listeners = configuration.get().getChangeListeners();
-         registrationRequirements = configuration.get().getRegistrationRequirements();
-         if (registrationRequirements != null)
+         final ProducerConfiguration producerConfiguration = configuration.get();
+         if (producerConfiguration != null)
          {
-            policyListeners = registrationRequirements.getPolicyChangeListeners();
-            propertyListeners = registrationRequirements.getPropertyChangeListeners();
+            listeners = producerConfiguration.getChangeListeners();
+            registrationRequirements = producerConfiguration.getRegistrationRequirements();
+            if (registrationRequirements != null)
+            {
+               policyListeners = registrationRequirements.getPolicyChangeListeners();
+               propertyListeners = registrationRequirements.getPropertyChangeListeners();
+            }
          }
       }
 
       // reload
-      loadConfiguration();
+      configuration.set(loadConfiguration());
 
       // make sure that we set strict mode on things which need to know about it regardless of listeners (which might
       // not exist when this method is called, as is the case at startup)
@@ -128,9 +144,11 @@ public abstract class AbstractProducerConfigurationService implements ProducerCo
             }
          }
       }
+
+      return configuration.get();
    }
 
-   protected abstract void loadConfiguration() throws Exception;
+   protected abstract ProducerConfiguration loadConfiguration() throws Exception;
 
    @Override
    public long getPersistedLastModifiedForConfiguration()

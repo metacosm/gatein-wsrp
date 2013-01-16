@@ -68,7 +68,7 @@ public class JCRProducerConfigurationService extends AbstractProducerConfigurati
       this.defaultConfigurationIS = is;
    }
 
-   protected void loadConfiguration() throws Exception
+   protected ProducerConfiguration loadConfiguration() throws Exception
    {
       try
       {
@@ -77,22 +77,24 @@ public class JCRProducerConfigurationService extends AbstractProducerConfigurati
          ProducerConfigurationMapping pcm = session.findByPath(ProducerConfigurationMapping.class, PRODUCER_CONFIGURATION_PATH);
 
          // if we don't have a configuration persisted in JCR already, force a reload from XML and save the resulting configuration
+         final ProducerConfiguration configuration;
          if (pcm == null)
          {
             pcm = session.insert(ProducerConfigurationMapping.class, PRODUCER_CONFIGURATION_PATH);
 
             ProducerConfigurationService service = new SimpleXMLProducerConfigurationService(defaultConfigurationIS);
 
-            service.reloadConfiguration();
-            configuration.set(service.getConfiguration());
-            pcm.initFrom(configuration.get());
+            configuration = service.getConfiguration();
+            pcm.initFrom(configuration);
 
             persister.save();
          }
          else
          {
-            configuration.set(pcm.toModel(null, this));
+            configuration = pcm.toModel(null, this);
          }
+
+         return configuration;
       }
       finally
       {
@@ -111,7 +113,7 @@ public class JCRProducerConfigurationService extends AbstractProducerConfigurati
          {
             pcm = session.insert(ProducerConfigurationMapping.class, PRODUCER_CONFIGURATION_PATH);
          }
-         pcm.initFrom(configuration.get());
+         pcm.initFrom(getConfigurationAsIs());
          persister.save();
       }
       finally

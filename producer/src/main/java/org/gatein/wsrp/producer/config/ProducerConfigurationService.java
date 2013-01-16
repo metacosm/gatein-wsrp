@@ -38,9 +38,9 @@ public interface ProducerConfigurationService
     * @throws Exception
     * @since 2.6.3
     */
-   void reloadConfiguration() throws Exception;
+   ProducerConfiguration reloadConfiguration() throws Exception;
 
-   void reloadConfiguration(boolean triggerListeners) throws Exception;
+   ProducerConfiguration reloadConfiguration(boolean triggerListeners) throws Exception;
 
    /**
     * Saves the producer configuration to persistent storage.

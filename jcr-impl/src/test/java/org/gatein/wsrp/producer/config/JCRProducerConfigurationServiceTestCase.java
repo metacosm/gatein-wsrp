@@ -90,7 +90,6 @@ public class JCRProducerConfigurationServiceTestCase extends ProducerConfigurati
       {
          getService().setConfigurationIS(location.openStream());
       }
-      getService().loadConfiguration();
-      return service.getConfiguration();
+      return service.reloadConfiguration();
    }
 }
