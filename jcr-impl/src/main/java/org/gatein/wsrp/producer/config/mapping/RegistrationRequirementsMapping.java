@@ -39,6 +39,7 @@ import org.gatein.wsrp.producer.config.impl.ProducerRegistrationRequirementsImpl
 import org.gatein.wsrp.registration.RegistrationPropertyDescription;
 import org.gatein.wsrp.registration.mapping.RegistrationPropertyDescriptionMapping;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -127,10 +128,13 @@ public abstract class RegistrationRequirementsMapping extends LastModifiedMixinH
       req.setRegistrationRequiredForFullDescription(getRegistrationRequiredForFullDescription());
       req.reloadPolicyFrom(getPolicyClassName(), getValidatorClassName());
 
-      for (RegistrationPropertyDescriptionMapping rpdm : getRegistrationPropertyDescriptions())
+      final List<RegistrationPropertyDescriptionMapping> propertyDescriptionMappings = getRegistrationPropertyDescriptions();
+      final List<RegistrationPropertyDescription> props = new ArrayList<RegistrationPropertyDescription>(propertyDescriptionMappings.size());
+      for (RegistrationPropertyDescriptionMapping rpdm : propertyDescriptionMappings)
       {
-         req.addRegistrationProperty(rpdm.toRegistrationPropertyDescription());
+         props.add(rpdm.toRegistrationPropertyDescription());
       }
+      req.setRegistrationProperties(props);
 
       req.setLastModified(getLastModified());
 
