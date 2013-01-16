@@ -43,11 +43,12 @@ import org.slf4j.LoggerFactory;
 import javax.xml.namespace.QName;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author <a href="mailto:chris.laprun@jboss.com">Chris Laprun</a>
@@ -66,13 +67,14 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
       }
    };
 
-   private boolean requiresRegistration;
-   private boolean fullServiceDescriptionRequiresRegistration;
+   private volatile boolean requiresRegistration;
+   private volatile boolean fullServiceDescriptionRequiresRegistration;
+
    private transient RegistrationPolicy policy;
    private String policyClassName;
    private String validatorClassName;
 
-   private Map<QName, RegistrationPropertyDescription> registrationProperties;
+   private final ConcurrentMap<QName, RegistrationPropertyDescription> registrationProperties;
 
    private Set<RegistrationPropertyChangeListener> propertyChangeListeners = new HashSet<RegistrationPropertyChangeListener>(3);
    private Set<RegistrationPolicyChangeListener> policyChangeListeners = new HashSet<RegistrationPolicyChangeListener>(3);
@@ -87,7 +89,7 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
 
    public ProducerRegistrationRequirementsImpl()
    {
-      registrationProperties = new HashMap<QName, RegistrationPropertyDescription>(7);
+      registrationProperties = new ConcurrentHashMap<QName, RegistrationPropertyDescription>(7);
 
       // always use the default RegistrationPolicy by default
       setPolicy(new DefaultRegistrationPolicy());
@@ -99,7 +101,6 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
       setPolicy(other.getPolicy());
 
       Set<Map.Entry<QName, RegistrationPropertyDescription>> otherProps = other.getRegistrationProperties().entrySet();
-      registrationProperties = new HashMap<QName, RegistrationPropertyDescription>(otherProps.size());
       for (Map.Entry<QName, RegistrationPropertyDescription> entry : otherProps)
       {
          registrationProperties.put(entry.getKey(), new RegistrationPropertyDescription(entry.getValue()));
@@ -108,7 +109,7 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
       setLastModified(other.getLastModified());
    }
 
-   public void setRegistrationProperties(Collection<RegistrationPropertyDescription> regProps)
+   public synchronized void setRegistrationProperties(Collection<RegistrationPropertyDescription> regProps)
    {
       Set<RegistrationPropertyDescription> original = new HashSet<RegistrationPropertyDescription>(registrationProperties.values());
       Set<RegistrationPropertyDescription> newProps = new HashSet<RegistrationPropertyDescription>(regProps);
@@ -118,7 +119,7 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
 
          for (RegistrationPropertyDescription propertyDescription : regProps)
          {
-            addRegistrationProperty(new RegistrationPropertyDescription(propertyDescription));
+            addRegistrationPropertyWithoutNotification(new RegistrationPropertyDescription(propertyDescription));
          }
 
          notifyRegistrationPropertyChangeListeners();
@@ -164,15 +165,24 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
 
    public void addRegistrationProperty(RegistrationPropertyDescription propertyDescription)
    {
+      final RegistrationPropertyDescription old = addRegistrationPropertyWithoutNotification(propertyDescription);
+      propertyDescription.setValueChangeListener(this);
+
+      if (modifyNowIfNeeded(old, propertyDescription))
+      {
+         notifyRegistrationPropertyChangeListeners();
+      }
+   }
+
+   private RegistrationPropertyDescription addRegistrationPropertyWithoutNotification(RegistrationPropertyDescription propertyDescription)
+   {
       ParameterValidation.throwIllegalArgExceptionIfNull(propertyDescription, "PropertyDescription");
       QName name = propertyDescription.getName();
       ParameterValidation.throwIllegalArgExceptionIfNull(name, "Property name");
 
-      final RegistrationPropertyDescription old = registrationProperties.put(name, propertyDescription);
-      if (modifyNowIfNeeded(old, propertyDescription))
+      synchronized (this)
       {
-         propertyDescription.setValueChangeListener(this);
-         notifyRegistrationPropertyChangeListeners();
+         return registrationProperties.put(name, propertyDescription);
       }
    }
 
@@ -230,7 +240,12 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
    public RegistrationPropertyDescription removeRegistrationProperty(QName propertyName)
    {
       ParameterValidation.throwIllegalArgExceptionIfNull(propertyName, "Property name");
-      RegistrationPropertyDescription prop = registrationProperties.remove(propertyName);
+      RegistrationPropertyDescription prop;
+      synchronized (this)
+      {
+         prop = registrationProperties.remove(propertyName);
+      }
+
       if (modifyNowIfNeeded(null, prop))
       {
          notifyRegistrationPropertyChangeListeners();
@@ -241,7 +256,11 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
 
    public void clearRegistrationProperties()
    {
-      registrationProperties.clear();
+      synchronized (this)
+      {
+         registrationProperties.clear();
+      }
+
       modifyNow();
       notifyRegistrationPropertyChangeListeners();
    }
@@ -269,7 +288,7 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
    * == RegistrationPropertyChangeListeners handling ==
    */
 
-   public void notifyRegistrationPropertyChangeListeners()
+   public synchronized void notifyRegistrationPropertyChangeListeners()
    {
       Map<QName, RegistrationPropertyDescription> newRegistrationProperties = Collections.unmodifiableMap(registrationProperties);
       for (RegistrationPropertyChangeListener listener : propertyChangeListeners)
@@ -278,50 +297,50 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
       }
    }
 
-   public void clearRegistrationPropertyChangeListeners()
+   public synchronized void clearRegistrationPropertyChangeListeners()
    {
       propertyChangeListeners.clear();
    }
 
-   public void addRegistrationPropertyChangeListener(RegistrationPropertyChangeListener listener)
+   public synchronized void addRegistrationPropertyChangeListener(RegistrationPropertyChangeListener listener)
    {
       ParameterValidation.throwIllegalArgExceptionIfNull(listener, "RegistrationPropertyChangeListener");
       propertyChangeListeners.add(listener);
    }
 
-   public void removeRegistrationPropertyChangeListener(RegistrationPropertyChangeListener listener)
+   public synchronized void removeRegistrationPropertyChangeListener(RegistrationPropertyChangeListener listener)
    {
       ParameterValidation.throwIllegalArgExceptionIfNull(listener, "RegistrationPropertyChangeListener");
       propertyChangeListeners.remove(listener);
    }
 
-   public Set<RegistrationPropertyChangeListener> getPropertyChangeListeners()
+   public synchronized Set<RegistrationPropertyChangeListener> getPropertyChangeListeners()
    {
-      return propertyChangeListeners;
+      return new HashSet<RegistrationPropertyChangeListener>(propertyChangeListeners);
    }
 
    /*
    * == RegistrationPolicyChangeListeners handling
    */
 
-   public void addRegistrationPolicyChangeListener(RegistrationPolicyChangeListener listener)
+   public synchronized void addRegistrationPolicyChangeListener(RegistrationPolicyChangeListener listener)
    {
       ParameterValidation.throwIllegalArgExceptionIfNull(listener, "RegistrationPolicyChangeListener");
       policyChangeListeners.add(listener);
    }
 
-   public void removeRegistrationPolicyChangeListener(RegistrationPolicyChangeListener listener)
+   public synchronized void removeRegistrationPolicyChangeListener(RegistrationPolicyChangeListener listener)
    {
       ParameterValidation.throwIllegalArgExceptionIfNull(listener, "RegistrationPolicyChangeListener");
       policyChangeListeners.remove(listener);
    }
 
-   public void clearRegistrationPolicyChangeListeners()
+   public synchronized void clearRegistrationPolicyChangeListeners()
    {
       policyChangeListeners.clear();
    }
 
-   public void notifyRegistrationPolicyChangeListeners()
+   public synchronized void notifyRegistrationPolicyChangeListeners()
    {
       for (RegistrationPolicyChangeListener listener : policyChangeListeners)
       {
@@ -331,10 +350,10 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
 
    public Set<RegistrationPolicyChangeListener> getPolicyChangeListeners()
    {
-      return policyChangeListeners;
+      return new HashSet<RegistrationPolicyChangeListener>(policyChangeListeners);
    }
 
-   public void setPolicy(RegistrationPolicy policy)
+   public synchronized void setPolicy(RegistrationPolicy policy)
    {
       if (modifyNowIfNeeded(this.policy, policy))
       {
@@ -363,16 +382,19 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
 
    public RegistrationPolicy getPolicy()
    {
-      reloadPolicyFrom(policyClassName, validatorClassName);
+      reloadPolicyFrom(getPolicyClassName(), getValidatorClassName());
 
-      return policy;
+      synchronized (this)
+      {
+         return policy;
+      }
    }
 
    public void reloadPolicyFrom(String policyClassName, String validatorClassName)
    {
       // only reload if we don't already have a policy or if the requested policy/validator classes are different
       // from the ones we already have 
-      if (policy == null || (requiresRegistration && (!policy.getClassName().equals(policyClassName) || isCurrentValidatorClassDifferentFrom(validatorClassName))))
+      if (mustReloadPolicy(policyClassName, validatorClassName))
       {
          if (policyClassName != null && !DEFAULT_POLICY_CLASS_NAME.equals(policyClassName))
          {
@@ -415,6 +437,11 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
       return PluginsAccess.getPlugins().getPluginImplementationNames(RegistrationPropertyValidator.class, DEFAULT_VALIDATOR_CLASS_NAME);
    }
 
+   private synchronized boolean mustReloadPolicy(String policyClassName, String validatorClassName)
+   {
+      return policy == null || (requiresRegistration && (!policy.getClassName().equals(policyClassName) || isCurrentValidatorClassDifferentFrom(validatorClassName)));
+   }
+
    private boolean isCurrentValidatorClassDifferentFrom(String validatorClassName)
    {
       return policy instanceof DefaultRegistrationPolicy && !((DefaultRegistrationPolicy)policy).getValidator().getClass().getCanonicalName().equals(validatorClassName);
@@ -425,9 +452,9 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
       ParameterValidation.throwIllegalArgExceptionIfNull(propertyDescription, "RegistrationPropertyDescription");
       ParameterValidation.throwIllegalArgExceptionIfNull(oldName, "property old name");
 
-      if (registrationProperties.containsKey(oldName))
+      synchronized (this)
       {
-         synchronized (this)
+         if (registrationProperties.containsKey(oldName))
          {
             registrationProperties.remove(oldName);
             registrationProperties.put(propertyDescription.getName(), propertyDescription);
@@ -437,13 +464,13 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
    }
 
 
-   public void setPolicyClassName(String policyClassName)
+   public synchronized void setPolicyClassName(String policyClassName)
    {
       this.policyClassName = policyClassName;
       setValidatorClassName(null); // reset validator class name when the policy class name changes
    }
 
-   public String getPolicyClassName()
+   public synchronized String getPolicyClassName()
    {
       if (policyClassName == null)
       {
@@ -453,12 +480,12 @@ public class ProducerRegistrationRequirementsImpl extends SupportsLastModified i
       return policyClassName;
    }
 
-   public void setValidatorClassName(String validatorClassName)
+   public synchronized void setValidatorClassName(String validatorClassName)
    {
       this.validatorClassName = validatorClassName;
    }
 
-   public String getValidatorClassName()
+   public synchronized String getValidatorClassName()
    {
       return validatorClassName;
    }
