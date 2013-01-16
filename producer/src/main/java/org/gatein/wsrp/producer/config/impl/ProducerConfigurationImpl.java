@@ -40,7 +40,7 @@ import java.util.List;
  */
 public class ProducerConfigurationImpl extends SupportsLastModified implements ProducerConfiguration
 {
-   private ProducerRegistrationRequirements requirements;
+   private ProducerRegistrationRequirements requirements = new ProducerRegistrationRequirementsImpl(false, false, false);
 
    // use strict mode by default
    private boolean strictMode = true;
@@ -53,20 +53,15 @@ public class ProducerConfigurationImpl extends SupportsLastModified implements P
 
    public ProducerRegistrationRequirements getRegistrationRequirements()
    {
-      if (requirements == null)
-      {
-         requirements = new ProducerRegistrationRequirementsImpl(false, false, false);
-      }
-
       return requirements;
    }
 
-   public boolean isUsingStrictMode()
+   public synchronized boolean isUsingStrictMode()
    {
       return strictMode;
    }
 
-   public void setUsingStrictMode(boolean strict)
+   public synchronized void setUsingStrictMode(boolean strict)
    {
       if (modifyNowIfNeeded(strictMode, strict))
       {
@@ -78,25 +73,25 @@ public class ProducerConfigurationImpl extends SupportsLastModified implements P
       }
    }
 
-   public void addChangeListener(ProducerConfigurationChangeListener listener)
+   public synchronized void addChangeListener(ProducerConfigurationChangeListener listener)
    {
       ParameterValidation.throwIllegalArgExceptionIfNull(listener, "ProducerConfigurationChangeListener");
       listeners.add(listener);
    }
 
-   public void removeChangeListener(ProducerConfigurationChangeListener listener)
+   public synchronized void removeChangeListener(ProducerConfigurationChangeListener listener)
    {
       ParameterValidation.throwIllegalArgExceptionIfNull(listener, "ProducerConfigurationChangeListener");
       listeners.remove(listener);
    }
 
-   public List<ProducerConfigurationChangeListener> getChangeListeners()
+   public synchronized List<ProducerConfigurationChangeListener> getChangeListeners()
    {
-      return listeners;
+      return new ArrayList<ProducerConfigurationChangeListener>(listeners);
    }
 
    @Override
-   public void setRegistrationRequirements(ProducerRegistrationRequirements requirements)
+   public synchronized void setRegistrationRequirements(ProducerRegistrationRequirements requirements)
    {
       if (modifyNowIfNeeded(this.requirements, requirements))
       {
@@ -104,12 +99,12 @@ public class ProducerConfigurationImpl extends SupportsLastModified implements P
       }
    }
 
-   public CookieProtocol getRequiresInitCookie()
+   public synchronized CookieProtocol getRequiresInitCookie()
    {
       return requiresInitCookie;
    }
 
-   public void setRequiresInitCookie(CookieProtocol requiresInitCookie)
+   public synchronized void setRequiresInitCookie(CookieProtocol requiresInitCookie)
    {
       if (modifyNowIfNeeded(this.requiresInitCookie, requiresInitCookie))
       {
@@ -117,12 +112,12 @@ public class ProducerConfigurationImpl extends SupportsLastModified implements P
       }
    }
 
-   public int getSessionExpirationTime()
+   public synchronized int getSessionExpirationTime()
    {
       return sessionExpirationTime;
    }
 
-   public void setSessionExpirationTime(int sessionExpirationTime)
+   public synchronized void setSessionExpirationTime(int sessionExpirationTime)
    {
       if (modifyNowIfNeeded(this.sessionExpirationTime, sessionExpirationTime))
       {
@@ -131,7 +126,7 @@ public class ProducerConfigurationImpl extends SupportsLastModified implements P
    }
 
    @Override
-   public long getLastModified()
+   public synchronized long getLastModified()
    {
       final long original = super.getLastModified();
 
