@@ -30,6 +30,7 @@ import org.gatein.common.i18n.LocalizedString;
 import org.gatein.common.logging.Logger;
 import org.gatein.common.logging.LoggerFactory;
 import org.gatein.common.util.ParameterValidation;
+import org.gatein.exports.ExportManager;
 import org.gatein.exports.data.ExportContext;
 import org.gatein.exports.data.ExportPortletData;
 import org.gatein.pc.api.InvalidPortletIdException;
@@ -627,7 +628,7 @@ public class PortletManagementHandler extends ServiceHandler implements PortletM
       List<PortletContext> portletContexts = exportPortlets.getPortletContext();
       if (!ParameterValidation.existsAndIsNotEmpty(portletContexts))
       {
-         throw WSRP2ExceptionFactory.createWSException(MissingParameters.class, "Missing required portletContext in ExportPortlets.", null);
+         throw WSRP2ExceptionFactory.createWSException(MissingParameters.class, "Missing required list of portlets to export in ExportPortlets.", null);
       }
 
       Registration registration = producer.getRegistrationOrFailIfInvalid(exportPortlets.getRegistrationContext());
@@ -647,7 +648,8 @@ public class PortletManagementHandler extends ServiceHandler implements PortletM
 
 
       //check that the export manager can handle export by value
-      if (exportByValueRequired && !producer.getExportManager().supportsExportByValue())
+      final ExportManager exportManager = producer.getExportManager();
+      if (exportByValueRequired && !exportManager.supportsExportByValue())
       {
          //TODO: instead of passing a string here, we should pass a resource so that its localized
          WSRP2ExceptionFactory.throwWSException(ExportByValueNotSupported.class, "The consumer is requesting portlets to be exported by value, but this consumer only supports export by reference.", null);
@@ -667,32 +669,27 @@ public class PortletManagementHandler extends ServiceHandler implements PortletM
             long currentTime = toLongDate(exportPortlets.getLifetime().getCurrentTime());
             long terminationTime = toLongDate(exportPortlets.getLifetime().getTerminationTime());
             long refreshDuration = exportPortlets.getLifetime().getRefreshDuration().getTimeInMillis(exportPortlets.getLifetime().getCurrentTime().toGregorianCalendar());
-            exportContext = producer.getExportManager().createExportContext(exportByValueRequired, currentTime, terminationTime, refreshDuration);
+            exportContext = exportManager.createExportContext(exportByValueRequired, currentTime, terminationTime, refreshDuration);
          }
          else
          {
-            exportContext = producer.getExportManager().createExportContext(exportByValueRequired, -1, -1, -1);
+            exportContext = exportManager.createExportContext(exportByValueRequired, -1, -1, -1);
          }
 
-         for (PortletContext portletContext : exportPortlets.getPortletContext())
+         for (PortletContext portletContext : portletContexts)
          {
             try
             {
-               byte[] exportData;
-
+               WSRP2ExceptionFactory.throwOperationFailedIfValueIsMissing(portletContext, "Portlet context");
                String portletHandle = portletContext.getPortletHandle();
-               byte[] portletState = portletContext.getPortletState();
-               WSRP2ExceptionFactory.throwOperationFailedIfValueIsMissing(portletHandle, "Portlet handle");
+               WSRP2ExceptionFactory.throwMissingParametersIfValueIsMissing(portletHandle, "Portlet handle", "PortletContext");
 
                org.gatein.pc.api.PortletContext portalPC = WSRPUtils.convertToPortalPortletContext(portletContext);
-
-               producer.getPortletInvoker().getPortlet(portalPC);
 
                org.gatein.pc.api.PortletContext exportedPortalPC = producer.getPortletInvoker().exportPortlet(PortletStateType.OPAQUE, portalPC);
 
                PortletContext exportedPortalContext = WSRPUtils.convertToWSRPPortletContext(exportedPortalPC);
-               portletHandle = exportedPortalContext.getPortletHandle();
-               portletState = exportedPortalContext.getPortletState();
+               byte[] portletState = exportedPortalContext.getPortletState();
 
                if (exportedPortalPC == null)
                {
@@ -703,8 +700,8 @@ public class PortletManagementHandler extends ServiceHandler implements PortletM
                ExportPortletData exportPortletData = producer.getExportManager().createExportPortletData(exportContext, portletHandle, portletState);
 
                //Create the exportedPortlet
-               byte[] exportPortletBytes = producer.getExportManager().encodeExportPortletData(exportContext, exportPortletData);
-               ExportedPortlet exportedPortlet = WSRPTypeFactory.createExportedPortlet(portletHandle, exportPortletData.encodeAsBytes());
+               byte[] exportPortletBytes = exportManager.encodeExportPortletData(exportContext, exportPortletData);
+               ExportedPortlet exportedPortlet = WSRPTypeFactory.createExportedPortlet(portletHandle, exportPortletBytes);
                exportedPortlets.add(exportedPortlet);
             }
 
@@ -747,7 +744,7 @@ public class PortletManagementHandler extends ServiceHandler implements PortletM
          //TODO: handle resourceLists better (should be using for things like errors)
          ResourceList resourceList = null;
 
-         byte[] exportContextBytes = producer.getExportManager().encodeExportContextData(exportContext);
+         byte[] exportContextBytes = exportManager.encodeExportContextData(exportContext);
 
          Lifetime lifetime = null;
 
