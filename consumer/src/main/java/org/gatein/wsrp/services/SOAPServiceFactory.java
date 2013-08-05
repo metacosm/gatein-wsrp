@@ -81,8 +81,14 @@ public class SOAPServiceFactory implements ManageableServiceFactory
    private static final String JBOSS_WS_STUBEXT_PROPERTY_CHUNKED_ENCODING_SIZE = "http://org.jboss.ws/http#chunksize";
 
    private static final Logger log = LoggerFactory.getLogger(SOAPServiceFactory.class);
+   private static final String SEPARATOR = " ";
 
    private String wsdlDefinitionURL;
+   /**
+    * Used to implement a simple round-robin-like mechanism to switch producer URL in case one is down
+    */
+   private String[] allWSDLURLs;
+   private int currentURL;
 
    private boolean isV2 = false;
    private Service wsService;
@@ -271,11 +277,26 @@ public class SOAPServiceFactory implements ManageableServiceFactory
 
    public void setWsdlDefinitionURL(String wsdlDefinitionURL)
    {
-      this.wsdlDefinitionURL = wsdlDefinitionURL;
+      if (!wsdlDefinitionURL.contains(SEPARATOR))
+      {
+         this.wsdlDefinitionURL = wsdlDefinitionURL;
+      }
+      else
+      {
+         // we have a URL with a separator to support passing several URLs for a simple failover mechanism, so we need to extract the individual URLs
+         allWSDLURLs = wsdlDefinitionURL.split("\\s+");
+         currentURL = 0;
+         this.wsdlDefinitionURL = allWSDLURLs[currentURL];
+      }
 
       // we need a refresh so mark as not available but not failed
       setAvailable(false);
       setFailed(false);
+   }
+
+   public String[] getAllWSDLURLs()
+   {
+      return allWSDLURLs;
    }
 
    public void start() throws Exception

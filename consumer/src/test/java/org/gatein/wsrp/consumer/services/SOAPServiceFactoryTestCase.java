@@ -36,6 +36,7 @@ import org.oasis.wsrp.v2.WSRPV2ServiceDescriptionPortType;
 
 import javax.wsdl.WSDLException;
 import java.net.URL;
+import java.util.Arrays;
 
 /**
  * @author <a href="mailto:chris.laprun@jboss.com">Chris Laprun</a>
@@ -57,6 +58,25 @@ public class SOAPServiceFactoryTestCase extends TestCase
    {
       URL url = Thread.currentThread().getContextClassLoader().getResource(fileName);
       return url.toExternalForm();
+   }
+
+   public void testAllWSDLURLs()
+   {
+      assertNull(factory.getAllWSDLURLs());
+
+      final String wsrp2 = getWSDLURL("wsdl/simplev2.wsdl");
+      final String wsrp1 = getWSDLURL("wsdl/simplev1.wsdl");
+
+      factory.setWsdlDefinitionURL(wsrp2);
+      assertNull(factory.getAllWSDLURLs());
+
+      factory.setWsdlDefinitionURL(wsrp2 + " " + wsrp1);
+      assertTrue(Arrays.equals(new String[]{wsrp2, wsrp1}, factory.getAllWSDLURLs()));
+      assertEquals(wsrp2, factory.getWsdlDefinitionURL());
+
+      factory.setWsdlDefinitionURL(wsrp1 + "    \t   \n " + wsrp2);
+      assertTrue(Arrays.equals(new String[]{wsrp1, wsrp2}, factory.getAllWSDLURLs()));
+      assertEquals(wsrp1, factory.getWsdlDefinitionURL());
    }
 
    public void testMissingMandatoryPort() throws Exception
