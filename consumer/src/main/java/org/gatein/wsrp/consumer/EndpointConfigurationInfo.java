@@ -66,12 +66,12 @@ public class EndpointConfigurationInfo
 
    public String getWsdlDefinitionURL()
    {
-      return serviceFactory.getWsdlDefinitionURL();
+      return getServiceFactory().getWsdlDefinitionURL();
    }
 
    public void setWsdlDefinitionURL(String wsdlDefinitionURL)
    {
-      serviceFactory.setWsdlDefinitionURL(wsdlDefinitionURL);
+      getServiceFactory().setWsdlDefinitionURL(wsdlDefinitionURL);
    }
 
    public void start() throws Exception
@@ -109,7 +109,7 @@ public class EndpointConfigurationInfo
    {
       try
       {
-         return serviceFactory.getServiceDescriptionService();
+         return getServiceFactory().getServiceDescriptionService();
       }
       catch (Exception e)
       {
@@ -122,7 +122,7 @@ public class EndpointConfigurationInfo
    {
       try
       {
-         return serviceFactory.getMarkupService();
+         return getServiceFactory().getMarkupService();
       }
       catch (Exception e)
       {
@@ -135,7 +135,7 @@ public class EndpointConfigurationInfo
    {
       try
       {
-         return serviceFactory.getPortletManagementService();
+         return getServiceFactory().getPortletManagementService();
       }
       catch (Exception e)
       {
@@ -148,7 +148,7 @@ public class EndpointConfigurationInfo
    {
       try
       {
-         return serviceFactory.getRegistrationService();
+         return getServiceFactory().getRegistrationService();
       }
       catch (Exception e)
       {
@@ -157,27 +157,9 @@ public class EndpointConfigurationInfo
       }
    }
 
-   private <T> T getService(Class<T> clazz) throws InvokerUnavailableException
-   {
-      return getService(clazz, getServiceFactory());
-   }
-
-   private <T> T getService(Class<T> clazz, ServiceFactory serviceFactory) throws InvokerUnavailableException
-   {
-      try
-      {
-         return serviceFactory.getService(clazz);
-      }
-      catch (Exception e)
-      {
-         throw new InvokerUnavailableException("Couldn't access " + clazz.getSimpleName() + " service. Cause: "
-            + e.getLocalizedMessage(), e);
-      }
-   }
-
    public boolean isAvailable()
    {
-      return serviceFactory.isAvailable();
+      return getServiceFactory().isAvailable();
    }
 
    public boolean isRefreshNeeded()
@@ -199,7 +181,7 @@ public class EndpointConfigurationInfo
    {
       try
       {
-         return serviceFactory.refresh(true);
+         return getServiceFactory().refresh(true);
       }
       catch (Exception e)
       {
@@ -228,31 +210,31 @@ public class EndpointConfigurationInfo
     */
    public void setWSOperationTimeOut(int msBeforeTimeOut)
    {
-      serviceFactory.setWSOperationTimeOut(msBeforeTimeOut);
+      getServiceFactory().setWSOperationTimeOut(msBeforeTimeOut);
    }
 
    public int getWSOperationTimeOut()
    {
-      return serviceFactory.getWSOperationTimeOut();
+      return getServiceFactory().getWSOperationTimeOut();
    }
 
    Version getWSRPVersion()
    {
-      return serviceFactory.getWSRPVersion();
+      return getServiceFactory().getWSRPVersion();
    }
 
    public boolean getWSSEnabled()
    {
-      return serviceFactory.isWSSEnabled();
+      return getServiceFactory().isWSSEnabled();
    }
 
    public void setWSSEnabled(boolean enable)
    {
-      serviceFactory.enableWSS(enable);
+      getServiceFactory().enableWSS(enable);
    }
 
    public boolean isWSSAvailable()
    {
-      return serviceFactory.isWSSAvailable();
+      return getServiceFactory().isWSSAvailable();
    }
 }
