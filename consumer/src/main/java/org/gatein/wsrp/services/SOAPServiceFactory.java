@@ -277,7 +277,7 @@ public class SOAPServiceFactory implements ManageableServiceFactory
 
    public void setWsdlDefinitionURL(String wsdlDefinitionURL)
    {
-      if (!wsdlDefinitionURL.contains(SEPARATOR))
+      if (wsdlDefinitionURL == null || !wsdlDefinitionURL.contains(SEPARATOR))
       {
          this.wsdlDefinitionURL = wsdlDefinitionURL;
       }
