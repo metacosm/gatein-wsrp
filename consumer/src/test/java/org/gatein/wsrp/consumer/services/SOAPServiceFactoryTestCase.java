@@ -79,6 +79,39 @@ public class SOAPServiceFactoryTestCase extends TestCase
       assertEquals(wsrp1, factory.getWsdlDefinitionURL());
    }
 
+   public void testFailover() throws Exception
+   {
+      final String missing = getWSDLURL("wsdl/missing-mandatory.wsdl");
+      final String wsrp2 = getWSDLURL("wsdl/simplev2.wsdl");
+
+      factory.setWsdlDefinitionURL(missing + " " + wsrp2);
+      assertEquals(missing, factory.getWsdlDefinitionURL());
+      checkPorts(WSRP2_PORT_TYPES);
+      assertEquals(wsrp2, factory.getWsdlDefinitionURL());
+   }
+
+   public void testFailoverDoesNotLoopInfinitely() throws Exception
+   {
+      final String missing = getWSDLURL("wsdl/missing-mandatory.wsdl");
+
+      // set timeout to keep test short :)
+      factory.setWSOperationTimeOut(1000);
+
+      factory.setWsdlDefinitionURL(missing + " " + missing);
+      assertEquals(missing, factory.getWsdlDefinitionURL());
+      try
+      {
+         checkPorts(WSRP2_PORT_TYPES);
+         fail();
+      }
+      catch (IllegalArgumentException e)
+      {
+         // expected
+         assertEquals(missing, factory.getWsdlDefinitionURL());
+      }
+
+   }
+
    public void testMissingMandatoryPort() throws Exception
    {
       factory.setWsdlDefinitionURL(getWSDLURL("wsdl/missing-mandatory.wsdl"));

@@ -81,14 +81,14 @@ public class SOAPServiceFactory implements ManageableServiceFactory
    private static final String JBOSS_WS_STUBEXT_PROPERTY_CHUNKED_ENCODING_SIZE = "http://org.jboss.ws/http#chunksize";
 
    private static final Logger log = LoggerFactory.getLogger(SOAPServiceFactory.class);
-   private static final String SEPARATOR = " ";
-
    private String wsdlDefinitionURL;
    /**
     * Used to implement a simple round-robin-like mechanism to switch producer URL in case one is down
     */
-   private String[] allWSDLURLs;
-   private int currentURL;
+   private transient String[] allWSDLURLs;
+   private transient int currentURL;
+   private transient long lastThroughListTime = System.currentTimeMillis();
+   private static final String SEPARATOR = " ";
 
    private boolean isV2 = false;
    private Service wsService;
@@ -351,10 +351,52 @@ public class SOAPServiceFactory implements ManageableServiceFactory
       }
       catch (Exception e)
       {
-         log.info("Couldn't access WSDL information at " + wsdlDefinitionURL + ". Service won't be available", e);
-         setAvailable(false);
-         setFailed(true);
-         throw e;
+         if (allWSDLURLs != null)
+         {
+            // we have a list of alternate URLs, try them in order first
+            do
+            {
+               // increment pointer to current URL
+               currentURL++;
+               // if we are moving past the last element, loop on the list only if we haven't looped through it in the last msBeforeTimeOut milliseconds (to avoid infinite loop)
+               if (currentURL == allWSDLURLs.length)
+               {
+                  currentURL = 0;
+                  final long now = System.currentTimeMillis();
+                  final long delta = now - lastThroughListTime;
+                  lastThroughListTime = now;
+                  if (delta < msBeforeTimeOut)
+                  {
+                     log.info("SOAPServiceFactory looped through all available WSDL URLs in the last " + msBeforeTimeOut
+                        + " milliseconds. We're considering that producers haven't had time to start again in that meantime so failing to avoid looping indefinitely.");
+                     break;
+                  }
+               }
+
+               // check the new WSDL URL
+               String old = wsdlDefinitionURL;
+               wsdlDefinitionURL = allWSDLURLs[currentURL];
+               log.info("Couldn't access WSDL information at " + old + ". Attempting to use next URL (" + wsdlDefinitionURL + ") in the list", e);
+               try
+               {
+                  start();
+                  break; // if start was successful, exit the loop!
+               }
+               catch (Exception e1)
+               {
+                  // start failed again, just keep on looping
+               }
+            }
+            while (true);
+         }
+         else
+         {
+            log.info("Couldn't access WSDL information at " + wsdlDefinitionURL + ". Service won't be available", e);
+            setAvailable(false);
+            setFailed(true);
+            throw e;
+         }
+
       }
    }
 
