@@ -66,12 +66,12 @@ public class EndpointConfigurationInfo
 
    public String getWsdlDefinitionURL()
    {
-      return getServiceFactory().getWsdlDefinitionURL();
+      return serviceFactory.getWsdlDefinitionURL();
    }
 
    public void setWsdlDefinitionURL(String wsdlDefinitionURL)
    {
-      getServiceFactory().setWsdlDefinitionURL(wsdlDefinitionURL);
+      serviceFactory.setWsdlDefinitionURL(wsdlDefinitionURL);
    }
 
    public void start() throws Exception
@@ -159,7 +159,7 @@ public class EndpointConfigurationInfo
 
    public boolean isAvailable()
    {
-      return getServiceFactory().isAvailable();
+      return serviceFactory.isAvailable();
    }
 
    public boolean isRefreshNeeded()
@@ -210,31 +210,31 @@ public class EndpointConfigurationInfo
     */
    public void setWSOperationTimeOut(int msBeforeTimeOut)
    {
-      getServiceFactory().setWSOperationTimeOut(msBeforeTimeOut);
+      serviceFactory.setWSOperationTimeOut(msBeforeTimeOut);
    }
 
    public int getWSOperationTimeOut()
    {
-      return getServiceFactory().getWSOperationTimeOut();
+      return serviceFactory.getWSOperationTimeOut();
    }
 
    Version getWSRPVersion()
    {
-      return getServiceFactory().getWSRPVersion();
+      return serviceFactory.getWSRPVersion();
    }
 
    public boolean getWSSEnabled()
    {
-      return getServiceFactory().isWSSEnabled();
+      return serviceFactory.isWSSEnabled();
    }
 
    public void setWSSEnabled(boolean enable)
    {
-      getServiceFactory().enableWSS(enable);
+      serviceFactory.enableWSS(enable);
    }
 
    public boolean isWSSAvailable()
    {
-      return getServiceFactory().isWSSAvailable();
+      return serviceFactory.isWSSAvailable();
    }
 }
