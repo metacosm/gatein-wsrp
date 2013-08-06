@@ -36,7 +36,6 @@ import org.oasis.wsrp.v2.WSRPV2ServiceDescriptionPortType;
 
 import javax.wsdl.WSDLException;
 import java.net.URL;
-import java.util.Arrays;
 
 /**
  * @author <a href="mailto:chris.laprun@jboss.com">Chris Laprun</a>
@@ -58,58 +57,6 @@ public class SOAPServiceFactoryTestCase extends TestCase
    {
       URL url = Thread.currentThread().getContextClassLoader().getResource(fileName);
       return url.toExternalForm();
-   }
-
-   public void testAllWSDLURLs()
-   {
-      assertNull(factory.getAllWSDLURLs());
-
-      final String wsrp2 = getWSDLURL("wsdl/simplev2.wsdl");
-      final String wsrp1 = getWSDLURL("wsdl/simplev1.wsdl");
-
-      factory.setWsdlDefinitionURL(wsrp2);
-      assertNull(factory.getAllWSDLURLs());
-
-      factory.setWsdlDefinitionURL(wsrp2 + " " + wsrp1);
-      assertTrue(Arrays.equals(new String[]{wsrp2, wsrp1}, factory.getAllWSDLURLs()));
-      assertEquals(wsrp2, factory.getWsdlDefinitionURL());
-
-      factory.setWsdlDefinitionURL(wsrp1 + "    \t   \n " + wsrp2);
-      assertTrue(Arrays.equals(new String[]{wsrp1, wsrp2}, factory.getAllWSDLURLs()));
-      assertEquals(wsrp1, factory.getWsdlDefinitionURL());
-   }
-
-   public void testFailover() throws Exception
-   {
-      final String missing = getWSDLURL("wsdl/missing-mandatory.wsdl");
-      final String wsrp2 = getWSDLURL("wsdl/simplev2.wsdl");
-
-      factory.setWsdlDefinitionURL(missing + " " + wsrp2);
-      assertEquals(missing, factory.getWsdlDefinitionURL());
-      checkPorts(WSRP2_PORT_TYPES);
-      assertEquals(wsrp2, factory.getWsdlDefinitionURL());
-   }
-
-   public void testFailoverDoesNotLoopInfinitely() throws Exception
-   {
-      final String missing = getWSDLURL("wsdl/missing-mandatory.wsdl");
-
-      // set timeout to keep test short :)
-      factory.setWSOperationTimeOut(1000);
-
-      factory.setWsdlDefinitionURL(missing + " " + missing);
-      assertEquals(missing, factory.getWsdlDefinitionURL());
-      try
-      {
-         checkPorts(WSRP2_PORT_TYPES);
-         fail();
-      }
-      catch (IllegalArgumentException e)
-      {
-         // expected
-         assertEquals(missing, factory.getWsdlDefinitionURL());
-      }
-
    }
 
    public void testMissingMandatoryPort() throws Exception

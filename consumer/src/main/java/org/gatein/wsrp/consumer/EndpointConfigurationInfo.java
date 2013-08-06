@@ -53,6 +53,14 @@ public class EndpointConfigurationInfo
    private transient String remoteHostAddress;
    private transient boolean started;
 
+   /**
+    * Used to implement a simple round-robin-like mechanism to switch producer URL in case one is down
+    */
+   private transient String[] allWSDLURLs;
+   private transient int currentURL;
+   private transient long lastThroughListTime = System.currentTimeMillis();
+   private static final String SEPARATOR = " ";
+
    public EndpointConfigurationInfo()
    {
       serviceFactory = new SOAPServiceFactory();
@@ -71,14 +79,77 @@ public class EndpointConfigurationInfo
 
    public void setWsdlDefinitionURL(String wsdlDefinitionURL)
    {
+      if (wsdlDefinitionURL != null && wsdlDefinitionURL.contains(SEPARATOR))
+      {
+         // we have a URL with a separator to support passing several URLs for a simple failover mechanism, so we need to extract the individual URLs
+         allWSDLURLs = wsdlDefinitionURL.split("\\s+");
+         currentURL = 0;
+         wsdlDefinitionURL = allWSDLURLs[currentURL];
+      }
       serviceFactory.setWsdlDefinitionURL(wsdlDefinitionURL);
+   }
+
+
+   public String[] getAllWSDLURLs()
+   {
+      return allWSDLURLs;
    }
 
    public void start() throws Exception
    {
       if (!started)
       {
-         serviceFactory.start();
+         try
+         {
+            serviceFactory.start();
+         }
+         catch (Exception e)
+         {
+            if (allWSDLURLs != null)
+            {
+               // we have a list of alternate URLs, try them in order first
+               do
+               {
+                  // increment pointer to current URL
+                  currentURL++;
+                  // if we are moving past the last element, loop on the list only if we haven't looped through it in the last msBeforeTimeOut milliseconds (to avoid infinite loop)
+                  if (currentURL == allWSDLURLs.length)
+                  {
+                     currentURL = 0;
+                     final long now = System.currentTimeMillis();
+                     final long delta = now - lastThroughListTime;
+                     lastThroughListTime = now;
+                     final int msBeforeTimeOut = serviceFactory.getWSOperationTimeOut();
+                     if (delta < msBeforeTimeOut)
+                     {
+                        log.info("SOAPServiceFactory looped through all available WSDL URLs in the last " + msBeforeTimeOut
+                           + " milliseconds. We're considering that producers haven't had time to start again in that meantime so failing to avoid looping indefinitely.");
+                        break;
+                     }
+                  }
+
+                  // check the new WSDL URL
+                  String old = serviceFactory.getWsdlDefinitionURL();
+                  final String wsdlDefinitionURL = allWSDLURLs[currentURL];
+                  serviceFactory.setWsdlDefinitionURL(wsdlDefinitionURL);
+                  log.info("Couldn't access WSDL information at " + old + ". Attempting to use next URL (" + wsdlDefinitionURL + ") in the list", e);
+                  try
+                  {
+                     start();
+                     break; // if start was successful, exit the loop!
+                  }
+                  catch (Exception e1)
+                  {
+                     // start failed again, just keep on looping
+                  }
+               }
+               while (true);
+            }
+            else
+            {
+               throw new RuntimeException(e);
+            }
+         }
          started = true;
       }
    }

@@ -25,8 +25,12 @@ package org.gatein.wsrp.consumer;
 
 import junit.framework.TestCase;
 import org.gatein.pc.api.InvokerUnavailableException;
+import org.gatein.wsrp.services.SOAPServiceFactory;
 import org.gatein.wsrp.services.ServiceFactory;
 import org.gatein.wsrp.test.protocol.v2.BehaviorBackedServiceFactory;
+
+import java.net.URL;
+import java.util.Arrays;
 
 /**
  * @author <a href="mailto:chris.laprun@jboss.com">Chris Laprun</a>
@@ -89,6 +93,70 @@ public class EndpointConfigurationInfoTestCase extends TestCase
       assertNotNull(factory);
       assertFalse(info.isRefreshNeeded());
       assertTrue(info.isAvailable());
-      assertTrue(factory.isAvailable());
+   }
+
+
+   public void testAllWSDLURLs()
+   {
+      assertNull(info.getAllWSDLURLs());
+
+      final String wsrp2 = getWSDLURL("wsdl/simplev2.wsdl");
+      final String wsrp1 = getWSDLURL("wsdl/simplev1.wsdl");
+
+      info.setWsdlDefinitionURL(wsrp2);
+      assertNull(info.getAllWSDLURLs());
+
+      info.setWsdlDefinitionURL(wsrp2 + " " + wsrp1);
+      assertTrue(Arrays.equals(new String[]{wsrp2, wsrp1}, info.getAllWSDLURLs()));
+      assertEquals(wsrp2, info.getWsdlDefinitionURL());
+
+      info.setWsdlDefinitionURL(wsrp1 + "    \t   \n " + wsrp2);
+      assertTrue(Arrays.equals(new String[]{wsrp1, wsrp2}, info.getAllWSDLURLs()));
+      assertEquals(wsrp1, info.getWsdlDefinitionURL());
+   }
+
+   public void testFailover() throws Exception
+   {
+      // use a "real" service factory for this test
+      info = new EndpointConfigurationInfo(new SOAPServiceFactory());
+
+      final String missing = getWSDLURL("wsdl/missing-mandatory.wsdl");
+      final String wsrp2 = getWSDLURL("wsdl/simplev2.wsdl");
+
+      info.setWsdlDefinitionURL(missing + " " + wsrp2);
+      assertEquals(missing, info.getWsdlDefinitionURL());
+      assertNotNull(info.getServiceDescriptionService());
+      assertEquals(wsrp2, info.getWsdlDefinitionURL());
+   }
+
+   public void testFailoverDoesNotLoopInfinitely() throws Exception
+   {
+      // use a "real" service factory for this test
+      info = new EndpointConfigurationInfo(new SOAPServiceFactory());
+
+      final String missing = getWSDLURL("wsdl/missing-mandatory.wsdl");
+
+      // set timeout to keep test short :)
+      info.setWSOperationTimeOut(1000);
+
+      info.setWsdlDefinitionURL(missing + " " + missing);
+      assertEquals(missing, info.getWsdlDefinitionURL());
+      try
+      {
+         info.getServiceDescriptionService();
+         fail();
+      }
+      catch (Exception e)
+      {
+         // expected
+         assertEquals(missing, info.getWsdlDefinitionURL());
+      }
+
+   }
+
+   private String getWSDLURL(String fileName)
+   {
+      URL url = Thread.currentThread().getContextClassLoader().getResource(fileName);
+      return url.toExternalForm();
    }
 }

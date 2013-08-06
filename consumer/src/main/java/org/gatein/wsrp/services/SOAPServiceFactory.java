@@ -82,13 +82,6 @@ public class SOAPServiceFactory implements ManageableServiceFactory
 
    private static final Logger log = LoggerFactory.getLogger(SOAPServiceFactory.class);
    private String wsdlDefinitionURL;
-   /**
-    * Used to implement a simple round-robin-like mechanism to switch producer URL in case one is down
-    */
-   private transient String[] allWSDLURLs;
-   private transient int currentURL;
-   private transient long lastThroughListTime = System.currentTimeMillis();
-   private static final String SEPARATOR = " ";
 
    private boolean isV2 = false;
    private Service wsService;
@@ -277,26 +270,11 @@ public class SOAPServiceFactory implements ManageableServiceFactory
 
    public void setWsdlDefinitionURL(String wsdlDefinitionURL)
    {
-      if (wsdlDefinitionURL == null || !wsdlDefinitionURL.contains(SEPARATOR))
-      {
-         this.wsdlDefinitionURL = wsdlDefinitionURL;
-      }
-      else
-      {
-         // we have a URL with a separator to support passing several URLs for a simple failover mechanism, so we need to extract the individual URLs
-         allWSDLURLs = wsdlDefinitionURL.split("\\s+");
-         currentURL = 0;
-         this.wsdlDefinitionURL = allWSDLURLs[currentURL];
-      }
+      this.wsdlDefinitionURL = wsdlDefinitionURL;
 
       // we need a refresh so mark as not available but not failed
       setAvailable(false);
       setFailed(false);
-   }
-
-   public String[] getAllWSDLURLs()
-   {
-      return allWSDLURLs;
    }
 
    public void start() throws Exception
@@ -351,52 +329,10 @@ public class SOAPServiceFactory implements ManageableServiceFactory
       }
       catch (Exception e)
       {
-         if (allWSDLURLs != null)
-         {
-            // we have a list of alternate URLs, try them in order first
-            do
-            {
-               // increment pointer to current URL
-               currentURL++;
-               // if we are moving past the last element, loop on the list only if we haven't looped through it in the last msBeforeTimeOut milliseconds (to avoid infinite loop)
-               if (currentURL == allWSDLURLs.length)
-               {
-                  currentURL = 0;
-                  final long now = System.currentTimeMillis();
-                  final long delta = now - lastThroughListTime;
-                  lastThroughListTime = now;
-                  if (delta < msBeforeTimeOut)
-                  {
-                     log.info("SOAPServiceFactory looped through all available WSDL URLs in the last " + msBeforeTimeOut
-                        + " milliseconds. We're considering that producers haven't had time to start again in that meantime so failing to avoid looping indefinitely.");
-                     break;
-                  }
-               }
-
-               // check the new WSDL URL
-               String old = wsdlDefinitionURL;
-               wsdlDefinitionURL = allWSDLURLs[currentURL];
-               log.info("Couldn't access WSDL information at " + old + ". Attempting to use next URL (" + wsdlDefinitionURL + ") in the list", e);
-               try
-               {
-                  start();
-                  break; // if start was successful, exit the loop!
-               }
-               catch (Exception e1)
-               {
-                  // start failed again, just keep on looping
-               }
-            }
-            while (true);
-         }
-         else
-         {
-            log.info("Couldn't access WSDL information at " + wsdlDefinitionURL + ". Service won't be available", e);
-            setAvailable(false);
-            setFailed(true);
-            throw e;
-         }
-
+         log.info("Couldn't access WSDL information at " + wsdlDefinitionURL + ". Service won't be available", e);
+         setAvailable(false);
+         setFailed(true);
+         throw e;
       }
    }
 
