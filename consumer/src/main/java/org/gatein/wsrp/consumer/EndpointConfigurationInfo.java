@@ -397,6 +397,10 @@ public class EndpointConfigurationInfo
    public void setWSOperationTimeOut(int msBeforeTimeOut)
    {
       this.msBeforeTimeOut = msBeforeTimeOut;
+      for (ServiceFactory factory : urlToServiceFactory.values())
+      {
+         factory.setWSOperationTimeOut(msBeforeTimeOut);
+      }
    }
 
    public int getWSOperationTimeOut()
@@ -417,6 +421,10 @@ public class EndpointConfigurationInfo
    public void setWSSEnabled(boolean enable)
    {
       isWSSEnabled = enable;
+      for (ServiceFactory factory : urlToServiceFactory.values())
+      {
+         factory.enableWSS(enable);
+      }
    }
 
    public boolean isWSSAvailable()
