@@ -25,6 +25,7 @@ package org.gatein.wsrp.consumer;
 
 import junit.framework.TestCase;
 import org.gatein.pc.api.InvokerUnavailableException;
+import org.gatein.wsrp.handler.RequestHeaderClientHandler;
 import org.gatein.wsrp.services.SOAPServiceFactory;
 import org.gatein.wsrp.services.ServiceFactory;
 import org.gatein.wsrp.test.protocol.v2.BehaviorBackedServiceFactory;
@@ -45,6 +46,7 @@ public class EndpointConfigurationInfoTestCase extends TestCase
    protected void setUp() throws Exception
    {
       info = new EndpointConfigurationInfo(new BehaviorBackedServiceFactory());
+      RequestHeaderClientHandler.resetCurrentInfo(); // make sure we don't have information that persists across tests
    }
 
    public void testSetWSDLURL() throws InvokerUnavailableException
@@ -52,6 +54,20 @@ public class EndpointConfigurationInfoTestCase extends TestCase
       String bea = "http://wsrp.bea.com:7001/producer/producer?WSDL";
       info.setWsdlDefinitionURL(bea);
       assertEquals(bea, info.getWsdlDefinitionURL());
+   }
+
+   public void testWSRPVersion() throws InvokerUnavailableException
+   {
+      // use a "real" service factory for this test
+      info = new EndpointConfigurationInfo(new SOAPServiceFactory());
+
+      info.setWsdlDefinitionURL(getWSDLURL("wsdl/simplev2.wsdl"));
+      info.forceRefresh();
+      assertEquals(ServiceFactory.WSRP2, info.getWSRPVersion());
+
+      info.setWsdlDefinitionURL(getWSDLURL("wsdl/simplev1.wsdl"));
+      info.forceRefresh();
+      assertEquals(ServiceFactory.WSRP1, info.getWSRPVersion());
    }
 
    /**
@@ -98,21 +114,34 @@ public class EndpointConfigurationInfoTestCase extends TestCase
 
    public void testAllWSDLURLs()
    {
-      assertNull(info.getAllWSDLURLs());
+      assertTrue(info.getAllWSDLURLs().isEmpty());
 
       final String wsrp2 = getWSDLURL("wsdl/simplev2.wsdl");
       final String wsrp1 = getWSDLURL("wsdl/simplev1.wsdl");
 
       info.setWsdlDefinitionURL(wsrp2);
-      assertNull(info.getAllWSDLURLs());
+      assertTrue(Arrays.equals(new String[]{wsrp2}, info.getAllWSDLURLs().toArray()));
 
-      info.setWsdlDefinitionURL(wsrp2 + " " + wsrp1);
-      assertTrue(Arrays.equals(new String[]{wsrp2, wsrp1}, info.getAllWSDLURLs()));
-      assertEquals(wsrp2, info.getWsdlDefinitionURL());
+      String wsdlDefinitionURL = wsrp2 + " " + wsrp1;
+      info.setWsdlDefinitionURL(wsdlDefinitionURL);
+      assertTrue(Arrays.equals(new String[]{wsrp2, wsrp1}, info.getAllWSDLURLs().toArray()));
+      assertEquals(wsdlDefinitionURL, info.getWsdlDefinitionURL());
+      assertEquals(wsrp2, info.getEffectiveWSDLURL());
 
-      info.setWsdlDefinitionURL(wsrp1 + "    \t   \n " + wsrp2);
-      assertTrue(Arrays.equals(new String[]{wsrp1, wsrp2}, info.getAllWSDLURLs()));
-      assertEquals(wsrp1, info.getWsdlDefinitionURL());
+      // we change the WSDL URLs but since the factory associated with wsrp2 is still valid, it's still the one that should be used
+      wsdlDefinitionURL = wsrp1 + "    \t   \n " + wsrp2;
+      info.setWsdlDefinitionURL(wsdlDefinitionURL);
+      assertTrue(Arrays.equals(new String[]{wsrp1, wsrp2}, info.getAllWSDLURLs().toArray()));
+      assertEquals(wsdlDefinitionURL, info.getWsdlDefinitionURL());
+      assertEquals(wsrp2, info.getEffectiveWSDLURL());
+
+      // now we remove wsrp2 from the URLs, wsrp1 should now be used
+      final String missing = getWSDLURL("wsdl/missing-mandatory.wsdl");
+      wsdlDefinitionURL = wsrp1 + " " + missing;
+      info.setWsdlDefinitionURL(wsdlDefinitionURL);
+      assertTrue(Arrays.equals(new String[]{wsrp1, missing}, info.getAllWSDLURLs().toArray()));
+      assertEquals(wsdlDefinitionURL, info.getWsdlDefinitionURL());
+      assertEquals(wsrp1, info.getEffectiveWSDLURL());
    }
 
    public void testFailover() throws Exception
@@ -123,10 +152,11 @@ public class EndpointConfigurationInfoTestCase extends TestCase
       final String missing = getWSDLURL("wsdl/missing-mandatory.wsdl");
       final String wsrp2 = getWSDLURL("wsdl/simplev2.wsdl");
 
-      info.setWsdlDefinitionURL(missing + " " + wsrp2);
-      assertEquals(missing, info.getWsdlDefinitionURL());
+      final String wsdlDefinitionURL = missing + " " + wsrp2;
+      info.setWsdlDefinitionURL(wsdlDefinitionURL);
+      assertEquals(wsdlDefinitionURL, info.getWsdlDefinitionURL());
       assertNotNull(info.getServiceDescriptionService());
-      assertEquals(wsrp2, info.getWsdlDefinitionURL());
+      assertEquals(wsrp2, info.getEffectiveWSDLURL());
    }
 
    public void testFailoverDoesNotLoopInfinitely() throws Exception
@@ -139,8 +169,9 @@ public class EndpointConfigurationInfoTestCase extends TestCase
       // set timeout to keep test short :)
       info.setWSOperationTimeOut(1000);
 
-      info.setWsdlDefinitionURL(missing + " " + missing);
-      assertEquals(missing, info.getWsdlDefinitionURL());
+      final String wsdlDefinitionURL = missing + " " + missing;
+      info.setWsdlDefinitionURL(wsdlDefinitionURL);
+      assertEquals(wsdlDefinitionURL, info.getWsdlDefinitionURL());
       try
       {
          info.getServiceDescriptionService();
@@ -149,7 +180,6 @@ public class EndpointConfigurationInfoTestCase extends TestCase
       catch (Exception e)
       {
          // expected
-         assertEquals(missing, info.getWsdlDefinitionURL());
       }
 
    }
