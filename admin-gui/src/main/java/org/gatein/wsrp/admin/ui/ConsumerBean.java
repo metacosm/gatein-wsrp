@@ -716,6 +716,16 @@ public class ConsumerBean extends ManagedBean
       return consumer.getMigrationService().isAvailableExportInfosEmpty();
    }
 
+   public boolean getLoadbalancing()
+   {
+      return getProducerInfo().getEndpointConfigurationInfo().isLoadbalancing();
+   }
+
+   public String getEffectiveWSDL()
+   {
+      return getProducerInfo().getEndpointConfigurationInfo().getEffectiveWSDLURL();
+   }
+
    public static class SelectablePortletHandle implements Comparable<SelectablePortletHandle>
    {
       private String handle;
