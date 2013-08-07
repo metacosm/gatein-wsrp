@@ -195,6 +195,11 @@ public class EndpointConfigurationInfo
    private void removeServiceFactory(ServiceFactory factory)
    {
       final String url = factory.getWsdlDefinitionURL();
+      removeServiceFactoryFor(url);
+   }
+
+   private void removeServiceFactoryFor(String url)
+   {
       log.info("ServiceFactory for URL '" + url + "' is not available. Removing it from round-robin.");
       urlToServiceFactory.remove(url); // todo: implement re-adding after a cooldown period
       final int index = allWSDLURLs.indexOf(url);
@@ -207,14 +212,14 @@ public class EndpointConfigurationInfo
       }
 
       // compute next URL to use
-      final int urlNumber = allWSDLURLs.size();
+      final int urlNumber = getNumberOfWSDLURLs();
       currentURL = index + 1;
       StringBuilder sb = new StringBuilder(urlNumber * 128);
       int i = 0;
       for (String wsdl : allWSDLURLs)
       {
          sb.append(wsdl);
-         if(i++ != urlNumber - 1)
+         if (i++ != urlNumber - 1)
          {
             sb.append(SEPARATOR);
          }
@@ -259,7 +264,7 @@ public class EndpointConfigurationInfo
       // if we haven't found a ServiceFactory, pick one from the available ones
       if (factory == null)
       {
-         final int size = allWSDLURLs.size();
+         final int size = getNumberOfWSDLURLs();
          if (size == 0)
          {
             // if we don't have a list of URLs to work with yet, return a new instance based on prototype
@@ -269,8 +274,8 @@ public class EndpointConfigurationInfo
          {
             // get the ServiceFactory associated with the currently selected URL
             factory = urlToServiceFactory.get(allWSDLURLs.get(currentURL % size));
-            // increment pointer to current URL, modulo the number of possible URLs
-            currentURL = currentURL++;
+            // increment pointer to current URL
+            currentURL++;
          }
       }
 
@@ -436,5 +441,21 @@ public class EndpointConfigurationInfo
    public boolean isLoadbalancing()
    {
       return allWSDLURLs.size() > 1;
+   }
+
+   public int getNumberOfWSDLURLs()
+   {
+      return allWSDLURLs.size();
+   }
+
+   public boolean switchProducerIfPossible()
+   {
+      // assume that we have a failed ServiceFactory so remove it from the current session and from the set of available factories
+      final ProducerSessionInformation sessionInformation = RequestHeaderClientHandler.getCurrentProducerSessionInformation();
+      removeServiceFactory(sessionInformation.getServiceFactory());
+      sessionInformation.setServiceFactory(null);
+
+      // try to get a ServiceFactory, if we get one, we successfully switched producer if we assumed the current ServiceFactory had failed...
+      return getServiceFactory() != null;
    }
 }
