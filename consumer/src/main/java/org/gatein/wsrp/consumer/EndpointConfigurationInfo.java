@@ -431,4 +431,9 @@ public class EndpointConfigurationInfo
    {
       return getServiceFactory().isWSSAvailable();
    }
+
+   public boolean isLoadbalancing()
+   {
+      return allWSDLURLs.size() > 1;
+   }
 }

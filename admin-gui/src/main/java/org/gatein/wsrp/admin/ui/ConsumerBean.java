@@ -868,6 +868,16 @@ public class ConsumerBean extends WSRPManagedBean implements Serializable
       return manager;
    }
 
+   public boolean isLoadbalancing()
+   {
+      return getProducerInfo().getEndpointConfigurationInfo().isLoadbalancing();
+   }
+
+   public String getEffectiveWSDL()
+   {
+      return getProducerInfo().getEndpointConfigurationInfo().getEffectiveWSDLURL();
+   }
+
    public static class SelectablePortletHandle implements Comparable<SelectablePortletHandle>
    {
       private String handle;
