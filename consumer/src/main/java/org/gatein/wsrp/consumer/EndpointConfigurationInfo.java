@@ -22,6 +22,7 @@
 
 package org.gatein.wsrp.consumer;
 
+import org.gatein.common.util.ParameterValidation;
 import org.gatein.common.util.Version;
 import org.gatein.pc.api.InvokerUnavailableException;
 import org.gatein.wsrp.consumer.handlers.ProducerSessionInformation;
@@ -41,6 +42,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author <a href="mailto:chris.laprun@jboss.com">Chris Laprun</a>
@@ -48,6 +52,26 @@ import java.util.Map;
 public class EndpointConfigurationInfo
 {
    private static final Logger log = LoggerFactory.getLogger(EndpointConfigurationInfo.class);
+
+   private static final int DEFAULT_COOLDOWN_PERIOD_SECONDS = 60;
+   private static int cooldownSeconds = DEFAULT_COOLDOWN_PERIOD_SECONDS;
+
+   static
+   {
+      final String cooldown = System.getProperty("org.gatein.wsrp.consumer.producerCooldownSeconds");
+      if (!ParameterValidation.isNullOrEmpty(cooldown))
+      {
+         try
+         {
+            cooldownSeconds = Integer.parseInt(cooldown);
+         }
+         catch (NumberFormatException e)
+         {
+            cooldownSeconds = DEFAULT_COOLDOWN_PERIOD_SECONDS;
+         }
+      }
+   }
+
 
    // transient variables
    /** The ordered (in the given order of URLs) map of ServiceFactories */
@@ -193,12 +217,28 @@ public class EndpointConfigurationInfo
       removeServiceFactoryFor(url);
    }
 
-   private void removeServiceFactoryFor(String url)
+   private void removeServiceFactoryFor(final String url)
    {
       log.info("ServiceFactory for URL '" + url + "' is not available. Removing it from round-robin.");
-      urlToServiceFactory.remove(url); // todo: implement re-adding after a cooldown period
+
+
+      // remove the failed factory from the available ones but remember it
+      final ServiceFactory removed = urlToServiceFactory.remove(url);
       final int index = allWSDLURLs.indexOf(url);
       allWSDLURLs.remove(url);
+
+      // schedule it to be re-added after a cooldown period
+      ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
+      scheduledExecutorService.schedule(new Runnable()
+      {
+         public void run()
+         {
+            urlToServiceFactory.put(url, removed);
+            allWSDLURLs.add(url);
+            log.info("Re-added ServiceFactory for URL '" + url + "' after " + cooldownSeconds + " seconds cooldown period.");
+            recomputeWSDLURL();
+         }
+      }, cooldownSeconds, TimeUnit.SECONDS);
 
       // if, after removing the URL, we don't have any anymore, throw an exception since we cannot do anything anymore
       if (allWSDLURLs.isEmpty())
@@ -207,8 +247,15 @@ public class EndpointConfigurationInfo
       }
 
       // compute next URL to use
-      final int urlNumber = getNumberOfWSDLURLs();
       currentURL = index + 1;
+
+      // re-compute the WSDL URL
+      recomputeWSDLURL();
+   }
+
+   private void recomputeWSDLURL()
+   {
+      final int urlNumber = getNumberOfWSDLURLs();
       StringBuilder sb = new StringBuilder(urlNumber * 128);
       int i = 0;
       for (String wsdl : allWSDLURLs)
