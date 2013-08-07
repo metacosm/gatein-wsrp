@@ -208,7 +208,7 @@ public class EndpointConfigurationInfo
 
       // compute next URL to use
       final int urlNumber = allWSDLURLs.size();
-      currentURL = index + 1 % urlNumber;
+      currentURL = index + 1;
       StringBuilder sb = new StringBuilder(urlNumber * 128);
       int i = 0;
       for (String wsdl : allWSDLURLs)
@@ -259,7 +259,8 @@ public class EndpointConfigurationInfo
       // if we haven't found a ServiceFactory, pick one from the available ones
       if (factory == null)
       {
-         if (allWSDLURLs.isEmpty())
+         final int size = allWSDLURLs.size();
+         if (size == 0)
          {
             // if we don't have a list of URLs to work with yet, return a new instance based on prototype
             factory = createFromPrototype();
@@ -267,9 +268,9 @@ public class EndpointConfigurationInfo
          else
          {
             // get the ServiceFactory associated with the currently selected URL
-            factory = urlToServiceFactory.get(allWSDLURLs.get(currentURL));
+            factory = urlToServiceFactory.get(allWSDLURLs.get(currentURL % size));
             // increment pointer to current URL, modulo the number of possible URLs
-            currentURL = currentURL++ % allWSDLURLs.size();
+            currentURL = currentURL++;
          }
       }
 
