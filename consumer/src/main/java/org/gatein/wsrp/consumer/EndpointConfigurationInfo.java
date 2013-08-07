@@ -207,8 +207,19 @@ public class EndpointConfigurationInfo
       }
 
       // compute next URL to use
-      currentURL = index + 1 % allWSDLURLs.size();
-      // todo: re-compute WSDL URL
+      final int urlNumber = allWSDLURLs.size();
+      currentURL = index + 1 % urlNumber;
+      StringBuilder sb = new StringBuilder(urlNumber * 128);
+      int i = 0;
+      for (String wsdl : allWSDLURLs)
+      {
+         sb.append(wsdl);
+         if(i++ != urlNumber - 1)
+         {
+            sb.append(SEPARATOR);
+         }
+      }
+      wsdlURL = sb.toString();
    }
 
    public void stop() throws Exception
