@@ -274,7 +274,7 @@ public class EndpointConfigurationInfo
       }
 
       // make sure the factory is started if we intend to use it
-      if (start)
+      if (start && !factory.isAvailable())
       {
          try
          {
