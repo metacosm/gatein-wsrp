@@ -81,7 +81,7 @@ public class ProducerSessionInformation implements Serializable
    /** The ServiceFactory that handles calls for this consumer session */
    private ServiceFactory factory;
 
-   String getParentSessionId()
+   public String getParentSessionId()
    {
       return parentSessionId;
    }

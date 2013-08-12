@@ -22,6 +22,7 @@
 
 package org.gatein.wsrp.consumer;
 
+import org.gatein.common.util.ParameterValidation;
 import org.gatein.common.util.Version;
 import org.gatein.pc.api.InvokerUnavailableException;
 import org.gatein.wsrp.consumer.handlers.ProducerSessionInformation;
@@ -41,6 +42,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author <a href="mailto:chris.laprun@jboss.com">Chris Laprun</a>
@@ -49,18 +53,43 @@ public class EndpointConfigurationInfo
 {
    private static final Logger log = LoggerFactory.getLogger(EndpointConfigurationInfo.class);
 
-   // transient variables
+   private static final int DEFAULT_COOLDOWN_PERIOD_SECONDS = 60;
+   private static int cooldownSeconds = DEFAULT_COOLDOWN_PERIOD_SECONDS;
+
+   static
+   {
+      final String cooldown = System.getProperty("org.gatein.wsrp.consumer.producerCooldownSeconds");
+      if (!ParameterValidation.isNullOrEmpty(cooldown))
+      {
+         try
+         {
+            cooldownSeconds = Integer.parseInt(cooldown);
+         }
+         catch (NumberFormatException e)
+         {
+            cooldownSeconds = DEFAULT_COOLDOWN_PERIOD_SECONDS;
+         }
+      }
+   }
+
+
+   // loadbalancer implementation support
+   /** Parsed list of WSDL URLs */
+   private transient List<String> allWSDLURLs = Collections.emptyList();
    /** The ordered (in the given order of URLs) map of ServiceFactories */
    private transient LinkedHashMap<String, ServiceFactory> urlToServiceFactory = new LinkedHashMap<String, ServiceFactory>();
-
-   /**
-    * Used to implement a simple round-robin-like mechanism to switch producer URL in case one is down
-    */
-   private transient List<String> allWSDLURLs = Collections.emptyList();
-   private transient int currentURL;
+   /** pointer to the current URL (modulo a modulo ^_^) for logged in users */
+   private transient int currentLoggedInURL;
+   /** pointer to the current URL (modulo a modulo ^_^) for requests not associated with a session */
+   private transient int currentUnloggedURL;
+   /** Separator that separate URLs in WSDL */
    private static final String SEPARATOR = " ";
+   /** Computed composite WSDL URL */
    private transient String wsdlURL;
-   private int msBeforeTimeOut;
+   /** Amount of milliseconds before a WS operation is considered as having timed out */
+   private transient int msBeforeTimeOut;
+   /** ServiceFactory prototype used to create ServiceFactories (mostly used so that we can use different types of factories, especially for tests) */
+   /** Whether or not WS-Security is enabled */
    private boolean isWSSEnabled;
 
    private final ServiceFactory factoryPrototype;
@@ -78,7 +107,7 @@ public class EndpointConfigurationInfo
       this(new SOAPServiceFactory());
    }
 
-   public String getWsdlDefinitionURL()
+   public synchronized String getWsdlDefinitionURL()
    {
       return wsdlURL;
    }
@@ -93,7 +122,7 @@ public class EndpointConfigurationInfo
     *
     * @param wsdlDefinitionURL
     */
-   public void setWsdlDefinitionURL(String wsdlDefinitionURL)
+   public synchronized void setWsdlDefinitionURL(String wsdlDefinitionURL)
    {
       if (wsdlDefinitionURL != null)
       {
@@ -151,7 +180,8 @@ public class EndpointConfigurationInfo
       }
 
       // reset current URL pointer
-      currentURL = 0;
+      currentLoggedInURL = 0;
+      currentUnloggedURL = 0;
       wsdlURL = wsdlDefinitionURL;
    }
 
@@ -162,7 +192,7 @@ public class EndpointConfigurationInfo
 
    public List<String> getAllWSDLURLs()
    {
-      return allWSDLURLs;
+      return Collections.unmodifiableList(allWSDLURLs);
    }
 
    public void start() throws Exception
@@ -186,7 +216,7 @@ public class EndpointConfigurationInfo
       initStateFrom(factory);
    }
 
-   private void initStateFrom(ServiceFactory factory)
+   private synchronized void initStateFrom(ServiceFactory factory)
    {
       msBeforeTimeOut = factory.getWSOperationTimeOut();
       isWSSEnabled = factory.isWSSEnabled();
@@ -198,22 +228,50 @@ public class EndpointConfigurationInfo
       removeServiceFactoryFor(url);
    }
 
-   private void removeServiceFactoryFor(String url)
+   private void removeServiceFactoryFor(final String url)
    {
       log.info("ServiceFactory for URL '" + url + "' is not available. Removing it from round-robin.");
-      urlToServiceFactory.remove(url); // todo: implement re-adding after a cooldown period
+
+
+      // remove the failed factory from the available ones but remember it
+      final ServiceFactory removed = urlToServiceFactory.remove(url);
       final int index = allWSDLURLs.indexOf(url);
       allWSDLURLs.remove(url);
+
+      // schedule it to be re-added after a cooldown period
+      ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
+      scheduledExecutorService.schedule(new Runnable()
+      {
+         public void run()
+         {
+            urlToServiceFactory.put(url, removed);
+            allWSDLURLs.add(url);
+            log.info("Re-added ServiceFactory for URL '" + url + "' after " + cooldownSeconds + " seconds cooldown period.");
+            recomputeWSDLURL();
+         }
+      }, cooldownSeconds, TimeUnit.SECONDS);
 
       // if, after removing the URL, we don't have any anymore, throw an exception since we cannot do anything anymore
       if (allWSDLURLs.isEmpty())
       {
-         throw new RuntimeException("Couldn't find an available ServiceFactory!"); // todo: improve error message / deal with this condition better
+         // if, after removing the URL, we don't have any anymore, throw an exception since we cannot do anything anymore
+         if (allWSDLURLs.isEmpty())
+         {
+            throw new RuntimeException("Couldn't find an available ServiceFactory!"); // todo: improve error message / deal with this condition better
+         }
+
+         // compute next URL to use
+         currentLoggedInURL = index + 1;
+         currentUnloggedURL = index + 1;
       }
 
-      // compute next URL to use
+      // re-compute the WSDL URL
+      recomputeWSDLURL();
+   }
+
+   private void recomputeWSDLURL()
+   {
       final int urlNumber = getNumberOfWSDLURLs();
-      currentURL = index + 1;
       StringBuilder sb = new StringBuilder(urlNumber * 128);
       int i = 0;
       for (String wsdl : allWSDLURLs)
@@ -243,25 +301,25 @@ public class EndpointConfigurationInfo
    ServiceFactory getServiceFactory(boolean start)
    {
       // figure out which ServiceFactory to use
-
       // first, check if there's already a ServiceFactory associated with the current session information to have sticky behavior
       final ProducerSessionInformation sessionInfo = RequestHeaderClientHandler.getProducerSessionInformation(true);
       ServiceFactory factory = sessionInfo.getServiceFactory();
+      String parentSessionId = sessionInfo.getParentSessionId();
 
-      // only use the factory from the session information if we have configured URLs and the factory is still part of the set of available factories
-      if (factory != null && !allWSDLURLs.isEmpty() && !urlToServiceFactory.containsKey(factory.getWsdlDefinitionURL()))
+      synchronized (this)
       {
-         // remove the factory from the session information
-         sessionInfo.setServiceFactory(null);
-         // set the factory to null so that another one can be picked
-         factory = null;
+         // only use the factory from the session information if we have configured URLs and the factory is still part of the set of available factories
+         if (factory != null && !allWSDLURLs.isEmpty() && !urlToServiceFactory.containsKey(factory.getWsdlDefinitionURL()))
+         {
+            // remove the factory from the session information
+            sessionInfo.setServiceFactory(null);
+            // set the factory to null so that another one can be picked
+            factory = null;
+         }
       }
 
-      // TODO: (not here, though) deal with expired sessions => need a listener for session events
-      // TODO: need to be able to detect that a ServiceFactory previously failed when we enter this method to update status
-      // TODO: multithreading proof!
-
       // if we haven't found a ServiceFactory, pick one from the available ones
+      final boolean logged = parentSessionId != null;
       if (factory == null)
       {
          final int size = getNumberOfWSDLURLs();
@@ -272,10 +330,27 @@ public class EndpointConfigurationInfo
          }
          else
          {
-            // get the ServiceFactory associated with the currently selected URL
-            factory = urlToServiceFactory.get(allWSDLURLs.get(currentURL % size));
-            // increment pointer to current URL
-            currentURL++;
+            synchronized (this)
+            {
+               final int selectedFactory = logged ? currentLoggedInURL % size : currentUnloggedURL % size;
+               if (log.isDebugEnabled())
+               {
+                  log.debug("ServiceFactory selected: " + selectedFactory + " out of " + size + " available (currentLoggedInURL = " + currentLoggedInURL + ")");
+               }
+               // get the ServiceFactory associated with the currently selected URL
+               factory = urlToServiceFactory.get(allWSDLURLs.get(selectedFactory));
+
+               // increment pointer to current URL; we use 2 different pointers since a WSRP request will first retrieve the portlet info without associated session resulting
+               // in potentially assigning logged users to the same factory if there are only 2 of them available
+               if (logged)
+               {
+                  currentLoggedInURL++;
+               }
+               else
+               {
+                  currentUnloggedURL++;
+               }
+            }
          }
       }
 
@@ -297,6 +372,10 @@ public class EndpointConfigurationInfo
 
       // if everything went well, associate the factory we picked with the current session information
       sessionInfo.setServiceFactory(factory);
+      if (logged && log.isDebugEnabled())
+      {
+         log.debug("Consumer Session '" + parentSessionId + "' is associated with ServiceFactory " + factory + ", producer URL: '" + factory.getWsdlDefinitionURL());
+      }
 
       return factory;
    }
@@ -400,7 +479,7 @@ public class EndpointConfigurationInfo
     * @param msBeforeTimeOut number of milliseconds to wait for a WS operation to return before timing out. Will be set
     *                        to {@link ServiceFactory#DEFAULT_TIMEOUT_MS} if negative.
     */
-   public void setWSOperationTimeOut(int msBeforeTimeOut)
+   public synchronized void setWSOperationTimeOut(int msBeforeTimeOut)
    {
       this.msBeforeTimeOut = msBeforeTimeOut;
       for (ServiceFactory factory : urlToServiceFactory.values())
@@ -409,7 +488,7 @@ public class EndpointConfigurationInfo
       }
    }
 
-   public int getWSOperationTimeOut()
+   public synchronized int getWSOperationTimeOut()
    {
       return msBeforeTimeOut;
    }
@@ -438,12 +517,12 @@ public class EndpointConfigurationInfo
       return getServiceFactory().isWSSAvailable();
    }
 
-   public boolean isLoadbalancing()
+   public synchronized boolean isLoadbalancing()
    {
       return allWSDLURLs.size() > 1;
    }
 
-   public int getNumberOfWSDLURLs()
+   public synchronized int getNumberOfWSDLURLs()
    {
       return allWSDLURLs.size();
    }
