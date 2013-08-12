@@ -64,6 +64,10 @@ public class EndpointConfigurationInfo
          try
          {
             cooldownSeconds = Integer.parseInt(cooldown);
+            if (cooldownSeconds <= 0)
+            {
+               cooldownSeconds = DEFAULT_COOLDOWN_PERIOD_SECONDS;
+            }
          }
          catch (NumberFormatException e)
          {
