@@ -97,6 +97,12 @@ public class SOAPServiceFactory implements ManageableServiceFactory
 
    private final ConcurrentHashMap<Class, Object> ports = new ConcurrentHashMap<Class, Object>(7);
 
+   @Override
+   public String toString()
+   {
+      return "SOAPServiceFactory (@" + Integer.toHexString(hashCode()) + ") URL=" + wsdlDefinitionURL + ", WSRP version " + (isV2 ? "2" : "1");
+   }
+
    private void setTimeout(Map<String, Object> requestContext)
    {
       int timeout = getWSOperationTimeOut();
