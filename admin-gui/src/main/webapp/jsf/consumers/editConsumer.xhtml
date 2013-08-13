@@ -55,10 +55,6 @@
                     <h:inputText id="wsdl" size="70" value="#{consumer.wsdl}"/>
                     <h:message styleClass="portlet-msg-error" for="wsdl"/>
                 </h:panelGroup>
-                <h:panelGroup rendered="#{consumer.loadbalancing}">
-                    <br/>
-                    <h:outputLabel value="Effective WSDL URL: #{consumer.effectiveWSDL}"/>
-                </h:panelGroup>
             </td>
         </tr>
         <tr>
