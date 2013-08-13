@@ -258,16 +258,12 @@ public class EndpointConfigurationInfo
       // if, after removing the URL, we don't have any anymore, throw an exception since we cannot do anything anymore
       if (allWSDLURLs.isEmpty())
       {
-         // if, after removing the URL, we don't have any anymore, throw an exception since we cannot do anything anymore
-         if (allWSDLURLs.isEmpty())
-         {
-            throw new RuntimeException("Couldn't find an available ServiceFactory!"); // todo: improve error message / deal with this condition better
-         }
-
-         // compute next URL to use
-         currentLoggedInURL = index + 1;
-         currentUnloggedURL = index + 1;
+         throw new RuntimeException("Couldn't find an available ServiceFactory!"); // todo: improve error message / deal with this condition better
       }
+
+      // compute next URL to use
+      currentLoggedInURL = index + 1;
+      currentUnloggedURL = index + 1;
 
       // re-compute the WSDL URL
       recomputeWSDLURL();
