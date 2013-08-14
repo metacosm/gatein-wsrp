@@ -32,6 +32,7 @@ import org.gatein.wsrp.test.protocol.v2.BehaviorBackedServiceFactory;
 
 import java.net.URL;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * @author <a href="mailto:chris.laprun@jboss.com">Chris Laprun</a>
@@ -142,6 +143,33 @@ public class EndpointConfigurationInfoTestCase extends TestCase
       assertTrue(Arrays.equals(new String[]{wsrp1, missing}, info.getAllWSDLURLs().toArray()));
       assertEquals(wsdlDefinitionURL, info.getWsdlDefinitionURL());
       assertEquals(wsrp1, info.getEffectiveWSDLURL());
+   }
+
+   public void testSingleURLWithSpacesInString()
+   {
+      final String wsrp2 = getWSDLURL("wsdl/simplev2.wsdl");
+
+      info.setWsdlDefinitionURL("\t    \n" + wsrp2 + "         \n ");
+      assertEquals(wsrp2, info.getWsdlDefinitionURL());
+      final List<String> allWSDLURLs = info.getAllWSDLURLs();
+      assertEquals(1, allWSDLURLs.size());
+      assertTrue(Arrays.equals(new String[]{wsrp2}, allWSDLURLs.toArray()));
+   }
+
+   public void testInitialState()
+   {
+      // use a "real" service factory for this test
+      info = new EndpointConfigurationInfo(new SOAPServiceFactory());
+
+      try
+      {
+         info.getServiceFactory();
+         fail();
+      }
+      catch (RuntimeException e)
+      {
+         // expected
+      }
    }
 
    public void testFailover() throws Exception

@@ -52,12 +52,14 @@ import java.util.concurrent.TimeUnit;
 public class EndpointConfigurationInfo
 {
    private static final Logger log = LoggerFactory.getLogger(EndpointConfigurationInfo.class);
+   private static final boolean DEBUG_ENABLED = log.isDebugEnabled();
 
    private static final int DEFAULT_COOLDOWN_PERIOD_SECONDS = 60;
    private static int cooldownSeconds = DEFAULT_COOLDOWN_PERIOD_SECONDS;
 
    static
    {
+      // retrieve the system property that specifies how long the cooldown should be for producers before being re-added to the URL pool
       final String cooldown = System.getProperty("org.gatein.wsrp.consumer.producerCooldownSeconds");
       if (!ParameterValidation.isNullOrEmpty(cooldown))
       {
@@ -66,12 +68,13 @@ public class EndpointConfigurationInfo
             cooldownSeconds = Integer.parseInt(cooldown);
             if (cooldownSeconds <= 0)
             {
+               // if the specified value is not strictly positive, use the default value
                cooldownSeconds = DEFAULT_COOLDOWN_PERIOD_SECONDS;
             }
          }
          catch (NumberFormatException e)
          {
-            cooldownSeconds = DEFAULT_COOLDOWN_PERIOD_SECONDS;
+            // use default value if the property is not a numberWN_PERIOD_SECONDS;
          }
       }
    }
@@ -92,10 +95,9 @@ public class EndpointConfigurationInfo
    private transient String wsdlURL;
    /** Amount of milliseconds before a WS operation is considered as having timed out */
    private transient int msBeforeTimeOut;
-   /** ServiceFactory prototype used to create ServiceFactories (mostly used so that we can use different types of factories, especially for tests) */
    /** Whether or not WS-Security is enabled */
    private boolean isWSSEnabled;
-
+   /** ServiceFactory prototype used to create ServiceFactories (mostly used so that we can use different types of factories, especially for tests) */
    private final ServiceFactory factoryPrototype;
 
    public EndpointConfigurationInfo(ServiceFactory serviceFactory)
@@ -116,20 +118,24 @@ public class EndpointConfigurationInfo
       return wsdlURL;
    }
 
-   public String getEffectiveWSDLURL()
+   String getEffectiveWSDLURL()
    {
       return getServiceFactory().getWsdlDefinitionURL();
    }
 
    /**
-    * When the WSDL URL changes, we need
+    * Sets the WSDL URL to use to access the associated producer. Also checks whether the specified String actually defines a list of URLs separated by {@link #SEPARATOR} in which
+    * case we switch to a loadbalancer behavior.
     *
-    * @param wsdlDefinitionURL
+    * @param wsdlDefinitionURL the URL of the WSDL for the associated producer
     */
    public synchronized void setWsdlDefinitionURL(String wsdlDefinitionURL)
    {
       if (wsdlDefinitionURL != null)
       {
+         // first trim the String
+         wsdlDefinitionURL = wsdlDefinitionURL.trim();
+
          if (wsdlDefinitionURL.contains(SEPARATOR))
          {
             // we have a URL with a separator to support passing several URLs for a simple failover mechanism, so we need to extract the individual URLs
@@ -183,7 +189,7 @@ public class EndpointConfigurationInfo
          }
       }
 
-      // reset current URL pointer
+      // reset current URL pointers
       currentLoggedInURL = 0;
       currentUnloggedURL = 0;
       wsdlURL = wsdlDefinitionURL;
@@ -201,7 +207,7 @@ public class EndpointConfigurationInfo
 
    public void start() throws Exception
    {
-
+      // start the factory associated with each URL
       List<ServiceFactory> factories = new ArrayList<ServiceFactory>(urlToServiceFactory.values());
       for (ServiceFactory factory : factories)
       {
@@ -232,28 +238,42 @@ public class EndpointConfigurationInfo
       removeServiceFactoryFor(url);
    }
 
-   private void removeServiceFactoryFor(final String url)
+   private synchronized void removeServiceFactoryFor(final String url)
    {
-      log.info("ServiceFactory for URL '" + url + "' is not available. Removing it from round-robin.");
-
+      if (DEBUG_ENABLED)
+      {
+         log.debug("ServiceFactory for URL '" + url + "' is not available. Removing it from round-robin.");
+      }
 
       // remove the failed factory from the available ones but remember it
       final ServiceFactory removed = urlToServiceFactory.remove(url);
       final int index = allWSDLURLs.indexOf(url);
-      allWSDLURLs.remove(url);
 
-      // schedule it to be re-added after a cooldown period
-      ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
-      scheduledExecutorService.schedule(new Runnable()
+      if (index >= 0)
       {
-         public void run()
+         allWSDLURLs.remove(index);
+      }
+
+      // schedule it to be re-added after a cooldown period (if it existed in the first place)
+      if (removed != null)
+      {
+         ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
+         scheduledExecutorService.schedule(new Runnable()
          {
-            urlToServiceFactory.put(url, removed);
-            allWSDLURLs.add(url);
-            log.info("Re-added ServiceFactory for URL '" + url + "' after " + cooldownSeconds + " seconds cooldown period.");
-            recomputeWSDLURL();
-         }
-      }, cooldownSeconds, TimeUnit.SECONDS);
+            public void run()
+            {
+               // re-add URL and factory
+               urlToServiceFactory.put(url, removed);
+               allWSDLURLs.add(url);
+               if (DEBUG_ENABLED)
+               {
+                  log.debug("Re-added ServiceFactory for URL '" + url + "' after " + cooldownSeconds + " seconds cooldown period.");
+               }
+               // and recompute the compound WSDL
+               recomputeWSDLURL();
+            }
+         }, cooldownSeconds, TimeUnit.SECONDS);
+      }
 
       // if, after removing the URL, we don't have any anymore, throw an exception since we cannot do anything anymore
       if (allWSDLURLs.isEmpty())
@@ -269,7 +289,7 @@ public class EndpointConfigurationInfo
       recomputeWSDLURL();
    }
 
-   private void recomputeWSDLURL()
+   private synchronized void recomputeWSDLURL()
    {
       final int urlNumber = getNumberOfWSDLURLs();
       StringBuilder sb = new StringBuilder(urlNumber * 128);
@@ -298,6 +318,13 @@ public class EndpointConfigurationInfo
       return getServiceFactory(true);
    }
 
+   /**
+    * Retrieves an available ServiceFactory, starting it if specified, or <code>null</code> if none could be found.
+    *
+    * @param start whether we should start the selected ServiceFactory
+    * @return an available ServiceFactory (selected via a simple round-robin process, failing over to the next one if the currently selected one is down)
+    * @throws RuntimeException if no available ServiceFactory can be found
+    */
    ServiceFactory getServiceFactory(boolean start)
    {
       // figure out which ServiceFactory to use
@@ -332,8 +359,9 @@ public class EndpointConfigurationInfo
          {
             synchronized (this)
             {
+               // very simple round-robin logic: infinitely increment a counter and modulo by the size of the available pool
                final int selectedFactory = logged ? currentLoggedInURL % size : currentUnloggedURL % size;
-               if (log.isDebugEnabled())
+               if (DEBUG_ENABLED)
                {
                   log.debug("ServiceFactory selected: " + selectedFactory + " out of " + size + " available (currentLoggedInURL = " + currentLoggedInURL + ")");
                }
@@ -372,7 +400,7 @@ public class EndpointConfigurationInfo
 
       // if everything went well, associate the factory we picked with the current session information
       sessionInfo.setServiceFactory(factory);
-      if (logged && log.isDebugEnabled())
+      if (logged && DEBUG_ENABLED)
       {
          log.debug("Consumer Session '" + parentSessionId + "' is associated with ServiceFactory " + factory + ", producer URL: '" + factory.getWsdlDefinitionURL());
       }
@@ -439,9 +467,9 @@ public class EndpointConfigurationInfo
 
    public boolean isRefreshNeeded()
    {
-      // we need a refresh if we're not available and the service factory is not in a failed state
-      boolean result = !isAvailable() /*&& !getServiceFactory(false).isFailed()*/;
-      if (result && log.isDebugEnabled())
+      // we need a refresh if we're not available
+      boolean result = !isAvailable();
+      if (result && DEBUG_ENABLED)
       {
          log.debug("Refresh needed");
       }
@@ -482,6 +510,7 @@ public class EndpointConfigurationInfo
    public synchronized void setWSOperationTimeOut(int msBeforeTimeOut)
    {
       this.msBeforeTimeOut = msBeforeTimeOut;
+      // set the new value on all ServiceFactories
       for (ServiceFactory factory : urlToServiceFactory.values())
       {
          factory.setWSOperationTimeOut(msBeforeTimeOut);
@@ -506,6 +535,7 @@ public class EndpointConfigurationInfo
    public void setWSSEnabled(boolean enable)
    {
       isWSSEnabled = enable;
+      // set the new value on all ServiceFactories
       for (ServiceFactory factory : urlToServiceFactory.values())
       {
          factory.enableWSS(enable);
